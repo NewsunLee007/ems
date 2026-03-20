@@ -1,0 +1,3077 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>初中学校考试考场编排系统</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel to translate JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Firebase Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <!-- Excel and PDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Font for PDF (Source Han Sans) -->
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- Destructure necessary components from global scope ---
+        const { useState, useEffect, useCallback, useMemo } = React;
+        
+        // --- Embedded Base64 Font for PDF ---
+        // This is a Base64 encoded string of a subset of the Noto Sans CJK font.
+        // It is embedded directly to ensure Chinese characters render correctly in PDFs on any system.
+
+        
+
+        // --- Icon Components (replaces external lucide-react library) ---
+        const icons = {
+          Settings: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" />
+            </svg>
+          ),
+          Building: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="2" width="16" height="20" rx="2" ry="2" /><path d="M9 22v-4h6v4" /><path d="M8 6h.01" /><path d="M16 6h.01" /><path d="M12 6h.01" /><path d="M12 10h.01" /><path d="M12 14h.01" /><path d="M16 10h.01" /><path d="M16 14h.01" /><path d="M8 10h.01" /><path d="M8 14h.01" />
+            </svg>
+          ),
+          Users: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          ),
+          FileText: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" />
+            </svg>
+          ),
+          BookUser: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /><circle cx="12" cy="8" r="2" /><path d="M15 13a3 3 0 1 0-6 0" />
+            </svg>
+          ),
+          Printer: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+            </svg>
+          ),
+          Upload: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          ),
+          Plus: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          ),
+          Trash2: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+            </svg>
+          ),
+          Save: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+            </svg>
+          ),
+          Download: (props) => (
+            <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          ),
+          GripVertical: (props) => (
+             <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle>
+            </svg>
+          )
+        };
+
+        // --- Firebase Configuration ---
+        // 重要提示：请将下面的占位符替换为您自己的Firebase项目配置！
+        // 您可以从Firebase控制台的项目设置中获取这些信息。
+        // 如果不替换，数据将无法保存到云端。
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { 
+            apiKey: "YOUR_API_KEY", 
+            authDomain: "YOUR_AUTH_DOMAIN", 
+            projectId: "YOUR_PROJECT_ID", 
+            storageBucket: "YOUR_STORAGE_BUCKET", 
+            messagingSenderId: "YOUR_SENDER_ID", 
+            appId: "YOUR_APP_ID" 
+        };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'exam-seating-default';
+
+        // --- Firebase Initialization ---
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // --- Helper Components ---
+        const Modal = ({ isOpen, onClose, title, children }) => {
+          if (!isOpen) return null;
+          return (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative border border-gray-100 animate-fade-in-up">
+                <h2 className="text-xl font-bold mb-4 text-gray-800">{title}</h2>
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+                {children}
+              </div>
+            </div>
+          );
+        };
+
+        const normalizeGrade = (value) => {
+            const v = String(value ?? '').trim();
+            if (!v) return '';
+
+            const direct = v.match(/\d+/);
+            if (direct) {
+                const n = parseInt(direct[0], 10);
+                if (n >= 7 && n <= 9) return String(n);
+                if (n >= 700 && n <= 999) return String(Math.floor(n / 100));
+                if (n === 1) return '7';
+                if (n === 2) return '8';
+                if (n === 3) return '9';
+            }
+
+            if (/(初一|七|一年级)/.test(v)) return '7';
+            if (/(初二|八|二年级)/.test(v)) return '8';
+            if (/(初三|九|三年级)/.test(v)) return '9';
+
+            return v;
+        };
+
+        const formatGradeLabel = (value) => {
+            const v = String(value ?? '').trim();
+            if (!v) return '';
+            if (v.includes('年级')) return v;
+            return `${v}年级`;
+        };
+
+        const clampInt = (value, min, max) => {
+            const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+            if (!Number.isFinite(n)) return min;
+            return Math.min(max, Math.max(min, n));
+        };
+
+        const extractDigits = (value) => {
+            const v = String(value ?? '').trim();
+            if (!v) return '';
+            const m = v.match(/\d+/g);
+            return m ? m.join('') : '';
+        };
+
+        const extractInnerClassNumber = (value) => {
+            const v = String(value ?? '').trim();
+            if (!v) return '';
+            const m = v.match(/[（(]\s*(\d{1,6})\s*[)）]/);
+            if (m) return m[1];
+            const digits = extractDigits(v);
+            return digits ? digits.slice(-1) : '';
+        };
+
+        const formatClassForOutput = (value, setting) => {
+            const v = String(value ?? '').trim();
+            if (!v) return '';
+
+            const mode = setting?.mode || 'full';
+            if (mode === 'full') return v;
+
+            if (mode === 'inner') {
+                const inner = extractInnerClassNumber(v);
+                if (!inner) return v;
+                const n = parseInt(inner, 10);
+                return Number.isFinite(n) ? String(n) : inner;
+            }
+
+            if (mode === 'lastN') {
+                const n = clampInt(setting?.lastN ?? 2, 1, 6);
+                const digits = extractDigits(v) || extractInnerClassNumber(v);
+                if (!digits) return v;
+                return String(digits).slice(-n).padStart(n, '0');
+            }
+
+            return v;
+        };
+
+        const getLayoutSeatCount = (layoutDetail) => {
+            const parts = String(layoutDetail ?? '')
+                .split(',')
+                .map(s => parseInt(String(s).trim(), 10))
+                .filter(n => Number.isFinite(n) && n > 0);
+            if (parts.length === 0) return 0;
+            return parts.reduce((sum, n) => sum + n, 0);
+        };
+
+        const getClassroomEffectiveCapacity = (classroom) => {
+            const layoutCount = getLayoutSeatCount(classroom?.layoutDetail);
+            if (layoutCount > 0) return layoutCount;
+            const cap = Number(classroom?.capacity);
+            if (Number.isFinite(cap) && cap > 0) return cap;
+            return 0;
+        };
+
+        const normalizeSubject = (value) => String(value ?? '').trim();
+        const toDate = (value) => {
+            const v = String(value ?? '').trim().replace(/\./g, '-').replace(/\//g, '-').replace('T', ' ');
+            const d = new Date(v);
+            return Number.isNaN(d.getTime()) ? null : d;
+        };
+        const isTimeOverlap = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd;
+        const subjectOrder = ['语文', '数学', '英语', '科学', '社会'];
+        const isCoreSubject = (s) => subjectOrder.includes(normalizeSubject(s));
+        const AUTH_TOKEN_KEY = 'ems_auth_token';
+        const defaultSessionTemplate = [
+            { subject: '语文', startTime: '2026-03-19T09:00', endTime: '2026-03-19T11:00' },
+            { subject: '数学', startTime: '2026-03-19T13:30', endTime: '2026-03-19T15:30' },
+            { subject: '英语', startTime: '2026-03-20T09:00', endTime: '2026-03-20T11:00' },
+            { subject: '科学', startTime: '2026-03-20T13:30', endTime: '2026-03-20T15:00' },
+            { subject: '社会', startTime: '2026-03-21T09:00', endTime: '2026-03-21T10:40' },
+        ];
+        const buildDefaultExamSessions = () => defaultSessionTemplate.map((s, idx) => ({
+            id: `es_default_${idx + 1}`,
+            subject: s.subject,
+            startTime: s.startTime,
+            endTime: s.endTime,
+        }));
+
+        const InvigilatorData = ({ invTeachers, setInvTeachers, sharedRooms, sharedExams, invDefaultLimit, setInvDefaultLimit, invRoles, setInvRoles, currentUser, authToken, apiBase }) => {
+            const [userList, setUserList] = useState([]);
+            const [newUser, setNewUser] = useState({ username: '', password: '', role: 'operator' });
+            const parseSheet = (file, cb) => {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const wb = XLSX.read(evt.target.result, { type: 'binary' });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                    cb(data);
+                };
+                reader.readAsBinaryString(file);
+            };
+
+            const importTeachers = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                parseSheet(file, (rows) => {
+                    const head = (rows[0] || []).map(h => String(h || '').trim());
+                    const nameIdx = head.findIndex(h => ['姓名'].includes(h));
+                    const subjectIdx = head.findIndex(h => ['学科'].includes(h));
+                    const gradeIdx = head.findIndex(h => ['年级'].includes(h));
+                    const start = (nameIdx >= 0 || subjectIdx >= 0) ? 1 : 0;
+                    const imported = rows.slice(start).map((r, i) => ({
+                        id: `it_${Date.now()}_${i}`,
+                        name: String(r[nameIdx >= 0 ? nameIdx : 2] || '').trim(),
+                        subject: normalizeSubject(r[subjectIdx >= 0 ? subjectIdx : 0]),
+                        grade: String(r[gradeIdx >= 0 ? gradeIdx : 1] || '').trim(),
+                        maxInvigilations: 2
+                    })).filter(x => x.name);
+                    setInvTeachers(prev => [...prev, ...imported]);
+                    alert(`已导入 ${imported.length} 位监考教师`);
+                });
+            };
+
+            const downloadTeacherTemplate = () => {
+                const headers = ['学科', '年级', '姓名', '次数上限'];
+                const rows = [
+                    ['语文', '九年级', '王老师', 2],
+                    ['数学', '九年级', '陈老师', 2],
+                    ['英语', '九年级', '李老师', 2],
+                ];
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '教师导入模板');
+                XLSX.writeFile(wb, '监考教师导入模板.xlsx');
+            };
+
+            const loadUsers = async () => {
+                if (!authToken || currentUser?.role !== 'admin') return;
+                try {
+                    const res = await fetch(`${apiBase}/api/users`, { headers: { 'x-auth-token': authToken } });
+                    if (!res.ok) throw new Error('用户列表读取失败');
+                    const data = await res.json();
+                    setUserList(data.users || []);
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            useEffect(() => {
+                loadUsers();
+            }, [authToken, currentUser?.role]);
+
+            const createUser = async () => {
+                if (!newUser.username || !newUser.password) {
+                    alert('请填写账号和密码');
+                    return;
+                }
+                try {
+                    const res = await fetch(`${apiBase}/api/users`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
+                        body: JSON.stringify(newUser),
+                    });
+                    if (!res.ok) throw new Error('创建用户失败');
+                    setNewUser({ username: '', password: '', role: 'operator' });
+                    loadUsers();
+                    alert('用户创建成功');
+                } catch (e) {
+                    alert(`创建失败：${e.message}`);
+                }
+            };
+
+            const deleteUser = async (id) => {
+                if (!window.confirm('确认删除该用户？')) return;
+                try {
+                    const res = await fetch(`${apiBase}/api/users/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'x-auth-token': authToken },
+                    });
+                    if (!res.ok) throw new Error('删除失败');
+                    loadUsers();
+                } catch (e) {
+                    alert(`删除失败：${e.message}`);
+                }
+            };
+
+            const renderTable = (title, rows, setRows, cols) => (
+                <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50">
+                    <h2 className="font-bold text-lg mb-3">{title}</h2>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full bg-white">
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    {cols.map(c => <th key={c.key} className="text-left py-3 px-4 font-medium text-gray-600">{c.label}</th>)}
+                                    <th className="text-left py-3 px-4 font-medium text-gray-600">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map(row => (
+                                    <tr key={row.id} className="border-b hover:bg-gray-50">
+                                        {cols.map(c => (
+                                            <td key={c.key} className="py-2 px-4">
+                                                <input
+                                                    type={c.type || 'text'}
+                                                    value={row[c.key] ?? ''}
+                                                    onChange={(e) => setRows(prev => prev.map(x => x.id === row.id ? { ...x, [c.key]: c.type === 'number' ? Number(e.target.value) : e.target.value } : x))}
+                                                    className="w-full p-2 border rounded-md"
+                                                />
+                                            </td>
+                                        ))}
+                                        <td className="py-2 px-4">
+                                            <button onClick={() => setRows(prev => prev.filter(x => x.id !== row.id))} className="text-red-500 hover:text-red-700">删除</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+
+            const applyBatchLimit = () => {
+                setInvTeachers(prev => prev.map(t => ({ ...t, maxInvigilations: Math.max(0, Number(invDefaultLimit) || 0) })));
+                alert('批量次数设置完成');
+            };
+
+            const roleFields = [
+                ['chief', '主考'],
+                ['viceChief', '副主考'],
+                ['affairsTeam', '考务组员'],
+                ['signaler', '司号'],
+                ['scanner', '试卷扫描'],
+                ['affairsOffice', '考务室']
+            ];
+
+            const saveDefaultTemplate = () => {
+                localStorage.setItem('invigilatorDefaultTemplate', JSON.stringify({ invDefaultLimit, invRoles }));
+                alert('默认模板已保存');
+            };
+
+            const loadDefaultTemplate = () => {
+                const raw = localStorage.getItem('invigilatorDefaultTemplate');
+                if (!raw) {
+                    alert('暂无默认模板');
+                    return;
+                }
+                try {
+                    const parsed = JSON.parse(raw);
+                    setInvDefaultLimit(Number(parsed.invDefaultLimit) || 2);
+                    setInvRoles(parsed.invRoles || invRoles);
+                    alert('默认模板已加载');
+                } catch (e) {
+                    alert('默认模板解析失败');
+                }
+            };
+
+            return (
+                <div className="space-y-5">
+                    <div className="bg-white/70 backdrop-blur-xl p-5 rounded-2xl shadow-lg border border-white/70 flex items-center justify-between">
+                        <div>
+                            <div className="font-semibold text-gray-800">教师信息（学科/年级/姓名）</div>
+                            <div className="text-xs text-gray-500 mt-1">考场与考试场次自动复用基础数据，无需二次导入</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={downloadTeacherTemplate} className="bg-white text-slate-700 border border-slate-200 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-sm font-medium">下载模板</button>
+                            <label className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2.5 rounded-xl cursor-pointer hover:shadow text-sm font-medium">
+                                导入教师Excel
+                                <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={importTeachers} />
+                            </label>
+                        </div>
+                    </div>
+
+                    {renderTable('监考教师列表', invTeachers, setInvTeachers, [
+                        { key: 'subject', label: '学科' },
+                        { key: 'grade', label: '年级' },
+                        { key: 'name', label: '姓名' },
+                        { key: 'maxInvigilations', label: '次数上限', type: 'number' }
+                    ])}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <div className="bg-white/70 backdrop-blur-xl p-5 rounded-2xl shadow-lg border border-white/70">
+                            <h2 className="font-bold text-lg mb-3">次数规则</h2>
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <span className="font-medium text-gray-700">批量监考次数：</span>
+                                <input type="number" min="0" value={invDefaultLimit} onChange={(e) => setInvDefaultLimit(Number(e.target.value) || 0)} className="w-28 p-2 border rounded-md" />
+                                <button onClick={applyBatchLimit} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">应用到全体教师</button>
+                            </div>
+                            <div className="mt-3 text-sm text-gray-600">已启用同科回避：任意学科教师均不能监考本学科考试场次。</div>
+                            <div className="mt-2 text-sm text-gray-600">当前复用数据：考场 {sharedRooms.length} 间，考试场次 {sharedExams.length} 场。</div>
+                        </div>
+                        <div className="bg-white/70 backdrop-blur-xl p-5 rounded-2xl shadow-lg border border-white/70">
+                            <h2 className="font-bold text-lg mb-3">岗位配置与模板</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {roleFields.map(([key, label]) => (
+                                    <div key={key}>
+                                        <label className="block text-gray-700 text-sm font-medium mb-1">{label}</label>
+                                        <input
+                                            value={invRoles[key] || ''}
+                                            onChange={(e) => setInvRoles(prev => ({ ...prev, [key]: e.target.value }))}
+                                            className="w-full p-2 border rounded-md"
+                                            placeholder={`请输入${label}信息`}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex gap-3 mt-4">
+                                <button onClick={saveDefaultTemplate} className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700">保存模板</button>
+                                <button onClick={loadDefaultTemplate} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">读取模板</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {currentUser?.role === 'admin' && (
+                        <div className="bg-white/70 backdrop-blur-xl p-5 rounded-2xl shadow-lg border border-white/70">
+                            <h2 className="font-bold text-lg mb-3">系统用户管理</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
+                                <input value={newUser.username} onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))} placeholder="账号" className="p-2 border rounded-md" />
+                                <input type="password" value={newUser.password} onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="密码" className="p-2 border rounded-md" />
+                                <select value={newUser.role} onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))} className="p-2 border rounded-md">
+                                    <option value="operator">普通用户</option>
+                                    <option value="admin">管理员</option>
+                                </select>
+                                <button onClick={createUser} className="bg-indigo-600 text-white rounded-md px-3 py-2">新增用户</button>
+                            </div>
+                            <div className="overflow-x-auto border rounded-lg">
+                                <table className="min-w-full bg-white text-sm">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="text-left py-2 px-3">账号</th>
+                                            <th className="text-left py-2 px-3">角色</th>
+                                            <th className="text-left py-2 px-3">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {userList.map(user => (
+                                            <tr key={user.id} className="border-b">
+                                                <td className="py-2 px-3">{user.username}</td>
+                                                <td className="py-2 px-3">{user.role}</td>
+                                                <td className="py-2 px-3">
+                                                    <button onClick={() => deleteUser(user.id)} className="text-red-600 hover:text-red-700">删除</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const InvigilatorArrange = ({ invTeachers, invRooms, invExams, invResult, setInvResult, invWarnings, setInvWarnings }) => {
+            const [selectedTeacherIds, setSelectedTeacherIds] = useState([]);
+            const [selectedRoomIds, setSelectedRoomIds] = useState([]);
+            const [selectedExamIds, setSelectedExamIds] = useState([]);
+            const [teacherGradeFilter, setTeacherGradeFilter] = useState('all');
+            const [teacherSubjectFilter, setTeacherSubjectFilter] = useState('all');
+
+            useEffect(() => {
+                setSelectedTeacherIds(invTeachers.map(t => t.id));
+            }, [invTeachers]);
+            useEffect(() => {
+                setSelectedRoomIds(invRooms.map(r => r.id));
+            }, [invRooms]);
+            useEffect(() => {
+                setSelectedExamIds(invExams.map(e => e.id));
+            }, [invExams]);
+
+            const runArrange = () => {
+                if (invTeachers.length === 0 || invRooms.length === 0 || invExams.length === 0) {
+                    alert('请先完善教师、考场和考试场次数据。');
+                    return;
+                }
+                const teachers = invTeachers
+                    .filter(t => selectedTeacherIds.includes(t.id))
+                    .filter(t => String(t.name || '').trim() && String(t.subject || '').trim())
+                    .map(t => ({ ...t, assignedCount: 0 }));
+                const sessions = [...invExams].sort((a, b) => {
+                    const ta = toDate(a.startTime)?.getTime() || 0;
+                    const tb = toDate(b.startTime)?.getTime() || 0;
+                    return ta - tb;
+                }).filter(s => selectedExamIds.includes(s.id));
+                const rooms = [...invRooms]
+                    .filter(r => selectedRoomIds.includes(r.id))
+                    .sort((a, b) => String(a.roomNo).localeCompare(String(b.roomNo), 'zh-Hans-CN'));
+                if (teachers.length === 0 || sessions.length === 0 || rooms.length === 0) {
+                    alert('请至少选择教师、考试场次和考场后再编排。');
+                    return;
+                }
+                const teacherSlots = {};
+                const result = [];
+                const warnings = [];
+
+                sessions.forEach(session => {
+                    const sStart = toDate(session.startTime);
+                    const sEnd = toDate(session.endTime);
+                    if (!sStart || !sEnd || sEnd <= sStart) {
+                        warnings.push(`${session.examName}-${session.subject} 时间格式不合法`);
+                        return;
+                    }
+                    rooms.forEach(room => {
+                        const need = Math.max(1, Number(room.requiredInvigilators) || 1);
+                        const picked = [];
+                        for (let i = 0; i < need; i++) {
+                            const candidates = teachers.filter(t => {
+                                if (picked.some(p => p.id === t.id)) return false;
+                                if (t.assignedCount >= Number(t.maxInvigilations || 0)) return false;
+                                if (normalizeSubject(t.subject) === normalizeSubject(session.subject)) return false;
+                                const assigned = teacherSlots[t.id] || [];
+                                return !assigned.some(x => isTimeOverlap(sStart, sEnd, x.start, x.end));
+                            });
+                            if (candidates.length === 0) break;
+                            candidates.sort((a, b) => {
+                                if (a.assignedCount !== b.assignedCount) return a.assignedCount - b.assignedCount;
+                                if (isCoreSubject(a.subject) !== isCoreSubject(b.subject)) return isCoreSubject(a.subject) ? 1 : -1;
+                                return String(a.name).localeCompare(String(b.name), 'zh-Hans-CN');
+                            });
+                            const chosen = candidates[0];
+                            chosen.assignedCount += 1;
+                            (teacherSlots[chosen.id] ||= []).push({ start: sStart, end: sEnd });
+                            picked.push(chosen);
+                        }
+                        if (picked.length < need) {
+                            warnings.push(`${session.examName}-${session.subject}-${room.roomNo} 缺少 ${need - picked.length} 位监考教师`);
+                        }
+                        result.push({
+                            id: `iv_${session.id}_${room.id}`,
+                            sessionId: session.id,
+                            examName: session.examName,
+                            subject: session.subject,
+                            startTime: session.startTime,
+                            endTime: session.endTime,
+                            roomNo: room.roomNo,
+                            requiredInvigilators: need,
+                            invigilatorIds: picked.map(p => p.id)
+                        });
+                    });
+                });
+
+                setInvWarnings(warnings);
+                setInvResult(result);
+                alert('监考编排完成');
+            };
+
+            const updateInvigilator = (recordId, idx, teacherId) => {
+                setInvResult(prev => prev.map(r => {
+                    if (r.id !== recordId) return r;
+                    const next = [...r.invigilatorIds];
+                    next[idx] = teacherId;
+                    return { ...r, invigilatorIds: next };
+                }));
+            };
+
+            const swapWithNext = (index) => {
+                setInvResult(prev => {
+                    if (index >= prev.length - 1) return prev;
+                    const a = prev[index];
+                    const b = prev[index + 1];
+                    if (a.sessionId !== b.sessionId) return prev;
+                    const copied = [...prev];
+                    copied[index] = { ...a, invigilatorIds: [...b.invigilatorIds] };
+                    copied[index + 1] = { ...b, invigilatorIds: [...a.invigilatorIds] };
+                    return copied;
+                });
+            };
+
+            const teacherOptions = (subject) => invTeachers.filter(t => normalizeSubject(t.subject) !== normalizeSubject(subject));
+            const teacherGrades = Array.from(new Set(invTeachers.map(t => String(t.grade || '').trim()).filter(Boolean))).sort();
+            const teacherSubjects = Array.from(new Set(invTeachers.map(t => normalizeSubject(t.subject)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+            const filteredTeachersForSelect = invTeachers.filter(t => {
+                if (teacherGradeFilter !== 'all' && String(t.grade || '').trim() !== teacherGradeFilter) return false;
+                if (teacherSubjectFilter !== 'all' && normalizeSubject(t.subject) !== teacherSubjectFilter) return false;
+                return true;
+            });
+            const toggleTeacher = (id) => setSelectedTeacherIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+            const toggleRoom = (id) => setSelectedRoomIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+            const toggleExam = (id) => setSelectedExamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+            return (
+                <div>
+                    <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50 mb-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                            <div className="bg-white/80 border border-slate-200 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="font-semibold text-sm">选择考试场次</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setSelectedExamIds(invExams.map(e => e.id))} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">全选</button>
+                                        <button onClick={() => setSelectedExamIds([])} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">清空</button>
+                                    </div>
+                                </div>
+                                <div className="max-h-36 overflow-auto space-y-1">
+                                    {invExams.map(exam => (
+                                        <label key={exam.id} className="flex items-center gap-2 text-sm">
+                                            <input type="checkbox" checked={selectedExamIds.includes(exam.id)} onChange={() => toggleExam(exam.id)} />
+                                            <span>{exam.subject} {exam.startTime}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white/80 border border-slate-200 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="font-semibold text-sm">选择考场</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setSelectedRoomIds(invRooms.map(r => r.id))} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">全选</button>
+                                        <button onClick={() => setSelectedRoomIds([])} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">清空</button>
+                                    </div>
+                                </div>
+                                <div className="max-h-36 overflow-auto space-y-1">
+                                    {invRooms.map(room => (
+                                        <label key={room.id} className="flex items-center gap-2 text-sm">
+                                            <input type="checkbox" checked={selectedRoomIds.includes(room.id)} onChange={() => toggleRoom(room.id)} />
+                                            <span>{room.roomNo}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white/80 border border-slate-200 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="font-semibold text-sm">选择教师</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setSelectedTeacherIds(filteredTeachersForSelect.map(t => t.id))} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">全选筛选项</button>
+                                        <button onClick={() => setSelectedTeacherIds([])} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">清空</button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 mb-2">
+                                    <select value={teacherGradeFilter} onChange={(e) => setTeacherGradeFilter(e.target.value)} className="p-1.5 border rounded text-sm">
+                                        <option value="all">全部年级</option>
+                                        {teacherGrades.map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                    <select value={teacherSubjectFilter} onChange={(e) => setTeacherSubjectFilter(e.target.value)} className="p-1.5 border rounded text-sm">
+                                        <option value="all">全部学科</option>
+                                        {teacherSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div className="max-h-28 overflow-auto space-y-1">
+                                    {filteredTeachersForSelect.map(t => (
+                                        <label key={t.id} className="flex items-center gap-2 text-sm">
+                                            <input type="checkbox" checked={selectedTeacherIds.includes(t.id)} onChange={() => toggleTeacher(t.id)} />
+                                            <span>{t.name}（{t.subject}）</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-gray-700 mb-4">规则：同科回避、同时间不冲突、不超个人上限，优先安排次数较少教师。</div>
+                        <button onClick={runArrange} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-pink-700">开始监考编排</button>
+                        {invWarnings.length > 0 && (
+                            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <div className="font-semibold mb-2">编排提示</div>
+                                <ul className="list-disc pl-6 text-sm text-amber-800">
+                                    {invWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+
+                    {invResult.length > 0 && (
+                        <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50">
+                            <h2 className="text-xl font-bold mb-4">监考结果微调</h2>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full bg-white">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            {['考试', '学科', '时间', '考场', '监考安排', '调位'].map(h => <th key={h} className="text-left py-3 px-4 font-medium text-gray-600">{h}</th>)}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {invResult.map((r, idx) => (
+                                            <tr key={r.id} className="border-b align-top">
+                                                <td className="py-3 px-4">{r.examName}</td>
+                                                <td className="py-3 px-4">{r.subject}</td>
+                                                <td className="py-3 px-4 text-sm">{r.startTime} ~ {r.endTime}</td>
+                                                <td className="py-3 px-4">{r.roomNo}</td>
+                                                <td className="py-3 px-4">
+                                                    <div className="space-y-2">
+                                                        {Array.from({ length: r.requiredInvigilators }).map((_, i) => (
+                                                            <select
+                                                                key={`${r.id}_${i}`}
+                                                                value={r.invigilatorIds[i] || ''}
+                                                                onChange={(e) => updateInvigilator(r.id, i, e.target.value)}
+                                                                className="w-64 p-2 border rounded-md"
+                                                            >
+                                                                <option value="">未分配</option>
+                                                                {teacherOptions(r.subject).map(t => (
+                                                                    <option key={t.id} value={t.id}>{t.name}（{t.subject}）</option>
+                                                                ))}
+                                                            </select>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <button onClick={() => swapWithNext(idx)} className="text-blue-500 hover:text-blue-700">与下一考场互换</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const InvigilatorExport = ({ invResult, invTeachers, invRoles, invExamTitle }) => {
+            const teacherMap = useMemo(() => {
+                const map = new Map();
+                invTeachers.forEach(t => map.set(t.id, t));
+                return map;
+            }, [invTeachers]);
+
+            const exportExcel = () => {
+                if (invResult.length === 0) {
+                    alert('暂无监考编排结果');
+                    return;
+                }
+                const rows = invResult.map(r => ({
+                    '考试名称': r.examName,
+                    '学科': r.subject,
+                    '开始时间': r.startTime,
+                    '结束时间': r.endTime,
+                    '考场': r.roomNo,
+                    '监考安排': r.invigilatorIds.map(id => teacherMap.get(id)?.name || '未分配').join('、')
+                }));
+                const statsMap = {};
+                invResult.forEach(r => {
+                    r.invigilatorIds.forEach(id => {
+                        if (!id) return;
+                        statsMap[id] = (statsMap[id] || 0) + 1;
+                    });
+                });
+                const statRows = invTeachers.map(t => ({
+                    '姓名': t.name,
+                    '学科': t.subject,
+                    '已安排次数': statsMap[t.id] || 0,
+                    '次数上限': Number(t.maxInvigilations || 0)
+                }));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '监考总表');
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(statRows), '教师统计');
+                XLSX.writeFile(wb, `${invExamTitle || '监考编排'}-监考安排.xlsx`);
+            };
+
+            const exportPDF = async () => {
+                if (invResult.length === 0) {
+                    alert('暂无监考编排结果');
+                    return;
+                }
+                const rows = invResult.map(r => ({
+                    time: `${r.startTime} ~ ${r.endTime}`,
+                    examName: r.examName,
+                    subject: r.subject,
+                    roomNo: r.roomNo,
+                    teachers: r.invigilatorIds.map(id => teacherMap.get(id)?.name || '未分配').join('、')
+                }));
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'fixed';
+                wrapper.style.left = '-10000px';
+                wrapper.style.top = '-10000px';
+                wrapper.style.width = '1280px';
+                wrapper.style.backgroundColor = '#fff';
+                wrapper.style.padding = '28px';
+                wrapper.style.fontFamily = '"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif';
+                wrapper.innerHTML = `
+                    <div style="font-size:30px;font-weight:700;text-align:center;margin-bottom:10px;">${invExamTitle || '监考编排表'}</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;font-size:14px;">
+                        <div>主考：${invRoles.chief || '未设置'}</div>
+                        <div>副主考：${invRoles.viceChief || '未设置'}</div>
+                        <div>考务组员：${invRoles.affairsTeam || '未设置'}</div>
+                        <div>司号：${invRoles.signaler || '未设置'}</div>
+                        <div>试卷扫描：${invRoles.scanner || '未设置'}</div>
+                        <div>考务室：${invRoles.affairsOffice || '未设置'}</div>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#eef2ff;">
+                                <th style="border:1px solid #cbd5e1;padding:8px;">时间</th>
+                                <th style="border:1px solid #cbd5e1;padding:8px;">考试名称</th>
+                                <th style="border:1px solid #cbd5e1;padding:8px;">学科</th>
+                                <th style="border:1px solid #cbd5e1;padding:8px;">考场</th>
+                                <th style="border:1px solid #cbd5e1;padding:8px;">监考安排</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(r => `
+                                <tr>
+                                    <td style="border:1px solid #cbd5e1;padding:8px;">${r.time}</td>
+                                    <td style="border:1px solid #cbd5e1;padding:8px;">${r.examName}</td>
+                                    <td style="border:1px solid #cbd5e1;padding:8px;">${r.subject}</td>
+                                    <td style="border:1px solid #cbd5e1;padding:8px;">${r.roomNo}</td>
+                                    <td style="border:1px solid #cbd5e1;padding:8px;">${r.teachers}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.body.appendChild(wrapper);
+                const canvas = await html2canvas(wrapper, { scale: 1.4, useCORS: true, backgroundColor: '#ffffff' });
+                document.body.removeChild(wrapper);
+                const img = canvas.toDataURL('image/jpeg', 0.78);
+                const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                doc.addImage(img, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'MEDIUM');
+                doc.save(`${invExamTitle || '监考编排'}-监考安排.pdf`);
+            };
+
+            return (
+                <div>
+                    <div className="grid grid-cols-1 gap-6">
+                        <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50">
+                            <h2 className="font-bold text-lg mb-3">监考安排导出</h2>
+                            <div className="space-y-3">
+                                <button onClick={exportPDF} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white px-4 py-2 rounded-lg hover:shadow-lg">导出 PDF</button>
+                                <button onClick={exportExcel} className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white px-4 py-2 rounded-lg hover:shadow-lg">导出 Excel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main Application ---
+        const App = () => {
+            const [currentView, setCurrentView] = useState('examSettings');
+            const [activeSystem, setActiveSystem] = useState('base');
+            const [isLoading, setIsLoading] = useState(false); // No backend loading needed initially
+            const [history, setHistory] = useState([]); // Store saved exam history
+            
+            const [examSettings, setExamSettings] = useState({
+                schoolYear: '2025',
+                term: '1',
+                examName: '期中模拟考试',
+                examType: '校内考试',
+                examSubType: '月考',
+                customSubType: '',
+            });
+            const [examSessions, setExamSessions] = useState(buildDefaultExamSessions);
+
+            const [classrooms, setClassrooms] = useState([
+                { id: 'c1', grade: '7', name: '物理实验室', number: '第01考场', capacity: 30, layout: '5', layoutDetail: '6,6,6,6,6' },
+                { id: 'c2', grade: '7', name: '化学实验室', number: '第02考场', capacity: 30, layout: '5', layoutDetail: '6,6,6,6,6' },
+                { id: 'c3', grade: '8', name: '阶梯教室(东)', number: '第03考场', capacity: 40, layout: '6', layoutDetail: '7,7,6,7,7,6' },
+            ]);
+
+            const [students, setStudents] = useState([
+                { id: 's1', grade: '7', studentId: 'G440101201207010001', class: '701', classSeat: '1', name: '张三', category: '1', special: false },
+                { id: 's2', grade: '7', studentId: 'G440101201207010002', class: '701', classSeat: '2', name: '李四', category: '1', special: false },
+                { id: 's3', grade: '7', studentId: 'G440101201207020001', class: '702', classSeat: '1', name: '王五', category: '2', special: false },
+                { id: 's4', grade: '7', studentId: 'G440101201207020002', class: '702', classSeat: '2', name: '赵六', category: '2', special: true },
+            ]);
+
+            const [examNumberRule, setExamNumberRule] = useState([
+                { id: 'r1', name: '学年', source: 'schoolYear', length: 2, value: '' },
+                { id: 'r2', name: '学期', source: 'term', length: 2, value: '' },
+                { id: 'r5', name: '班级', source: 'class', length: 2, value: '' },
+                { id: 'r3', name: '考场号', source: 'classroomNumber', length: 2, value: '' },
+                { id: 'r4', name: '座位号', source: 'seatNumber', length: 2, value: '' },
+            ]);
+
+            const [arrangementResult, setArrangementResult] = useState([]);
+            const [useImportedExamNumber, setUseImportedExamNumber] = useState(false);
+            const [classDisplaySetting, setClassDisplaySetting] = useState({ mode: 'full', lastN: 2 });
+            const [invTeachers, setInvTeachers] = useState([]);
+            const [invResult, setInvResult] = useState([]);
+            const [invWarnings, setInvWarnings] = useState([]);
+            const [invDefaultLimit, setInvDefaultLimit] = useState(2);
+            const [invRoles, setInvRoles] = useState({
+                chief: '',
+                viceChief: '',
+                affairsTeam: '',
+                signaler: '',
+                scanner: '',
+                affairsOffice: ''
+            });
+            const apiBase = window.location.port === '3000' ? '' : `${window.location.protocol}//${window.location.hostname}:3000`;
+            const backendAuthRequired = false;
+            const [authToken, setAuthToken] = useState(localStorage.getItem(AUTH_TOKEN_KEY) || '');
+            const [currentUser, setCurrentUser] = useState(null);
+            const [authChecking, setAuthChecking] = useState(backendAuthRequired);
+            const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+
+            // Load history on mount
+            useEffect(() => {
+                const savedHistory = localStorage.getItem('examArrangementHistory');
+                if (savedHistory) {
+                    try {
+                        setHistory(JSON.parse(savedHistory));
+                    } catch (e) {
+                        console.error("Failed to parse history", e);
+                    }
+                }
+            }, []);
+
+            useEffect(() => {
+                if (!backendAuthRequired) {
+                    setAuthChecking(false);
+                    return;
+                }
+                if (!authToken) {
+                    setAuthChecking(false);
+                    return;
+                }
+                const run = async () => {
+                    try {
+                        const res = await fetch(`${apiBase}/api/auth/me`, { headers: { 'x-auth-token': authToken } });
+                        if (!res.ok) throw new Error('unauthorized');
+                        const data = await res.json();
+                        setCurrentUser(data.user);
+                    } catch (e) {
+                        localStorage.removeItem(AUTH_TOKEN_KEY);
+                        setAuthToken('');
+                        setCurrentUser(null);
+                    } finally {
+                        setAuthChecking(false);
+                    }
+                };
+                run();
+            }, [authToken, backendAuthRequired, apiBase]);
+
+            const saveData = useCallback(() => {
+                const currentData = {
+                    id: Date.now(),
+                    saveTime: new Date().toLocaleString(),
+                    examSettings,
+                    examSessions,
+                    classrooms,
+                    students,
+                    examNumberRule,
+                    useImportedExamNumber,
+                    classDisplaySetting,
+                    arrangementResult,
+                    invTeachers,
+                    invResult,
+                    invWarnings,
+                    invDefaultLimit,
+                    invRoles
+                };
+                
+                // Use examName as the key identifier for display
+                const saveName = examSettings.examName || "未命名考试";
+                
+                // Update history: if same name exists, update it? Or keep all versions? 
+                // Let's prepend to history.
+                const newHistory = [currentData, ...history.filter(h => h.examSettings?.examName !== saveName)];
+                
+                setHistory(newHistory);
+                localStorage.setItem('examArrangementHistory', JSON.stringify(newHistory));
+                
+                alert(`数据已保存！\n考试名称：${saveName}\n您可以在“历史记录”中查看和加载此存档。`);
+            }, [examSettings, examSessions, classrooms, students, examNumberRule, useImportedExamNumber, classDisplaySetting, arrangementResult, invTeachers, invResult, invWarnings, invDefaultLimit, invRoles, history]);
+
+            const loadHistoryItem = (item) => {
+                if (window.confirm(`确定要加载 "${item.examSettings?.examName}" 的存档吗？\n当前未保存的修改将会丢失。`)) {
+                    setExamSettings(item.examSettings || examSettings);
+                    setExamSessions(item.examSessions || examSessions);
+                    setClassrooms(item.classrooms || classrooms);
+                    setStudents(item.students || students);
+                    setExamNumberRule(item.examNumberRule || examNumberRule);
+                    setUseImportedExamNumber(!!item.useImportedExamNumber);
+                    setClassDisplaySetting(item.classDisplaySetting || classDisplaySetting);
+                    setArrangementResult(item.arrangementResult || []);
+                    setInvTeachers(item.invTeachers || []);
+                    setInvResult(item.invResult || []);
+                    setInvWarnings(item.invWarnings || []);
+                    setInvDefaultLimit(Number(item.invDefaultLimit) || 2);
+                    setInvRoles(item.invRoles || {
+                        chief: '',
+                        viceChief: '',
+                        affairsTeam: '',
+                        signaler: '',
+                        scanner: '',
+                        affairsOffice: ''
+                    });
+                    alert("存档加载成功！");
+                }
+            };
+
+            const deleteHistoryItem = (e, id) => {
+                e.stopPropagation();
+                if (window.confirm("确定要删除这条历史记录吗？")) {
+                    const newHistory = history.filter(h => h.id !== id);
+                    setHistory(newHistory);
+                    localStorage.setItem('examArrangementHistory', JSON.stringify(newHistory));
+                }
+            };
+
+            const buildPayload = () => ({
+                examSettings,
+                examSessions,
+                classrooms,
+                students,
+                examNumberRule,
+                useImportedExamNumber,
+                classDisplaySetting,
+                arrangementResult,
+                invTeachers,
+                invResult,
+                invWarnings,
+                invDefaultLimit,
+                invRoles
+            });
+
+            const applyPayload = (payload) => {
+                if (!payload) return;
+                if (payload.examSettings) setExamSettings(payload.examSettings);
+                if (payload.examSessions) setExamSessions(payload.examSessions);
+                if (payload.classrooms) setClassrooms(payload.classrooms);
+                if (payload.students) setStudents(payload.students);
+                if (payload.examNumberRule) setExamNumberRule(payload.examNumberRule);
+                setUseImportedExamNumber(!!payload.useImportedExamNumber);
+                if (payload.classDisplaySetting) setClassDisplaySetting(payload.classDisplaySetting);
+                if (payload.arrangementResult) setArrangementResult(payload.arrangementResult);
+                if (payload.invTeachers) setInvTeachers(payload.invTeachers);
+                if (payload.invResult) setInvResult(payload.invResult);
+                if (payload.invWarnings) setInvWarnings(payload.invWarnings);
+                if (Number.isFinite(Number(payload.invDefaultLimit))) setInvDefaultLimit(Number(payload.invDefaultLimit));
+                if (payload.invRoles) setInvRoles(payload.invRoles);
+            };
+
+            const saveCloudData = async () => {
+                try {
+                    const res = await fetch(`${apiBase}/api/save-all`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(authToken ? { 'x-auth-token': authToken } : {}) },
+                        body: JSON.stringify({ payload: buildPayload() }),
+                    });
+                    if (!res.ok) throw new Error('云端保存失败');
+                    alert('云端保存成功');
+                } catch (e) {
+                    alert(`云端保存失败：${e.message}`);
+                }
+            };
+
+            const loadCloudData = async () => {
+                try {
+                    const res = await fetch(`${apiBase}/api/load-latest`, { headers: authToken ? { 'x-auth-token': authToken } : {} });
+                    if (!res.ok) throw new Error('云端读取失败');
+                    const json = await res.json();
+                    applyPayload(json.payload);
+                    alert('云端数据加载成功');
+                } catch (e) {
+                    alert(`云端读取失败：${e.message}`);
+                }
+            };
+
+            const baseViews = ['examSettings', 'classroomInfo', 'studentInfo', 'invData'];
+            const seatViews = ['examNumberRule', 'arrange', 'printExport', 'history'];
+            const invViews = ['invArrange', 'invExport'];
+            const sharedInvRooms = useMemo(() => classrooms.map(c => ({
+                id: c.id,
+                name: c.name,
+                roomNo: c.number,
+                requiredInvigilators: 2
+            })), [classrooms]);
+            const sharedInvExams = useMemo(() => examSessions.map(s => ({
+                id: s.id,
+                examName: examSettings.examName,
+                subject: s.subject,
+                startTime: s.startTime,
+                endTime: s.endTime
+            })), [examSessions, examSettings.examName]);
+            const invExamTitle = `${examSettings.examName || '未命名考试'}监考编排`;
+
+            useEffect(() => {
+                if (activeSystem === 'base' && !baseViews.includes(currentView)) {
+                    setCurrentView('examSettings');
+                }
+                if (activeSystem === 'seat' && !seatViews.includes(currentView)) {
+                    setCurrentView('examNumberRule');
+                }
+                if (activeSystem === 'inv' && !invViews.includes(currentView)) {
+                    setCurrentView('invArrange');
+                }
+            }, [activeSystem, currentView]);
+
+            const renderView = () => {
+                switch (currentView) {
+                    case 'examSettings': return <ExamSettings settings={examSettings} setSettings={setExamSettings} examSessions={examSessions} setExamSessions={setExamSessions} />;
+                    case 'classroomInfo': return <ClassroomInfo classrooms={classrooms} setClassrooms={setClassrooms} />;
+                    case 'studentInfo': return <StudentInfo students={students} setStudents={setStudents} />;
+                    case 'examNumberRule': return <ExamNumberRule rule={examNumberRule} setRule={setExamNumberRule} useImportedExamNumber={useImportedExamNumber} setUseImportedExamNumber={setUseImportedExamNumber} />;
+                    case 'arrange': return <ArrangementEngine students={students} classrooms={classrooms} examSessions={examSessions} examSettings={examSettings} examNumberRule={examNumberRule} useImportedExamNumber={useImportedExamNumber} arrangementResult={arrangementResult} setArrangementResult={setArrangementResult} classDisplaySetting={classDisplaySetting} />;
+                    case 'printExport': return <PrintAndExport arrangementResult={arrangementResult} examSettings={examSettings} classrooms={classrooms} classDisplaySetting={classDisplaySetting} setClassDisplaySetting={setClassDisplaySetting} />;
+                    case 'history': return <HistoryView history={history} onLoad={loadHistoryItem} onDelete={deleteHistoryItem} />;
+                    case 'invData': return <InvigilatorData invTeachers={invTeachers} setInvTeachers={setInvTeachers} sharedRooms={sharedInvRooms} sharedExams={sharedInvExams} invDefaultLimit={invDefaultLimit} setInvDefaultLimit={setInvDefaultLimit} invRoles={invRoles} setInvRoles={setInvRoles} currentUser={currentUser} authToken={authToken} apiBase={apiBase} />;
+                    case 'invArrange': return <InvigilatorArrange invTeachers={invTeachers} invRooms={sharedInvRooms} invExams={sharedInvExams} invResult={invResult} setInvResult={setInvResult} invWarnings={invWarnings} setInvWarnings={setInvWarnings} />;
+                    case 'invExport': return <InvigilatorExport invResult={invResult} invTeachers={invTeachers} invRoles={invRoles} invExamTitle={invExamTitle} />;
+                    default: return <ExamSettings settings={examSettings} setSettings={setExamSettings} examSessions={examSessions} setExamSessions={setExamSessions} />;
+                }
+            };
+            
+            if (isLoading) {
+                return <div className="flex justify-center items-center h-screen">正在加载数据...</div>;
+            }
+
+            const handleLogin = async () => {
+                try {
+                    const res = await fetch(`${apiBase}/api/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(loginForm),
+                    });
+                    if (!res.ok) throw new Error('账号或密码错误');
+                    const data = await res.json();
+                    setAuthToken(data.token);
+                    setCurrentUser(data.user);
+                    localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+                } catch (e) {
+                    alert(`登录失败：${e.message}`);
+                }
+            };
+
+            const logout = () => {
+                localStorage.removeItem(AUTH_TOKEN_KEY);
+                setAuthToken('');
+                setCurrentUser(null);
+            };
+
+            if (backendAuthRequired && authChecking) {
+                return <div className="h-screen flex items-center justify-center text-slate-600">正在校验登录状态...</div>;
+            }
+
+            if (backendAuthRequired && !authToken) {
+                return (
+                    <div className="h-screen flex items-center justify-center bg-[radial-gradient(circle_at_20%_10%,#dbeafe_0%,#eef2ff_35%,#f8fafc_100%)]">
+                        <div className="w-full max-w-md bg-white/70 backdrop-blur-xl border border-white/70 rounded-2xl p-8 shadow-xl">
+                            <h2 className="text-2xl font-bold mb-6 text-center text-slate-800">EMS 系统登录</h2>
+                            <div className="space-y-4">
+                                <input value={loginForm.username} onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))} placeholder="账号" className="w-full p-3 border rounded-xl" />
+                                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))} placeholder="密码" className="w-full p-3 border rounded-xl" />
+                                <button onClick={handleLogin} className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-700 text-white font-semibold">登录系统</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex h-screen bg-[radial-gradient(circle_at_20%_10%,#dbeafe_0%,#eef2ff_28%,#f8fafc_60%,#f1f5f9_100%)] font-sans">
+                    <Sidebar currentView={currentView} setCurrentView={setCurrentView} onSave={saveData} onCloudSave={saveCloudData} onCloudLoad={loadCloudData} onLogout={logout} currentUser={currentUser} activeSystem={activeSystem} setActiveSystem={setActiveSystem} />
+                    <main className="flex-1 p-5 overflow-y-auto">
+                        <div className="max-w-[1380px] mx-auto">
+                            <TopTabs activeSystem={activeSystem} currentView={currentView} setCurrentView={setCurrentView} />
+                            {renderView()}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const TopTabs = ({ activeSystem, currentView, setCurrentView }) => {
+            const tabs = {
+                base: [
+                    { id: 'examSettings', label: '考试设定' },
+                    { id: 'classroomInfo', label: '考场信息' },
+                    { id: 'studentInfo', label: '考生信息' },
+                    { id: 'invData', label: '教师与岗位' },
+                ],
+                seat: [
+                    { id: 'examNumberRule', label: '考号规则' },
+                    { id: 'arrange', label: '一键编排' },
+                    { id: 'printExport', label: '打印输出' },
+                    { id: 'history', label: '历史记录' },
+                ],
+                inv: [
+                    { id: 'invArrange', label: '监考编排' },
+                    { id: 'invExport', label: '监考导出' },
+                ]
+            };
+            const currentTabs = tabs[activeSystem] || [];
+            return (
+                <div className="mb-5 bg-white/65 backdrop-blur-xl rounded-2xl border border-white/70 shadow-sm p-3">
+                    <div className="flex flex-wrap gap-2">
+                        {currentTabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setCurrentView(tab.id)}
+                                className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                                    currentView === tab.id
+                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow'
+                                        : 'bg-white/80 text-slate-700 hover:bg-white'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const Sidebar = ({ onSave, onCloudSave, onCloudLoad, onLogout, currentUser, activeSystem, setActiveSystem }) => {
+            const systems = [
+                { id: 'base', label: '基础信息' },
+                { id: 'seat', label: '考场编排' },
+                { id: 'inv', label: '监考编排' },
+            ];
+
+            return (
+                <nav className="w-52 bg-white/55 backdrop-blur-2xl border-r border-white/60 shadow-xl z-10 p-3 flex flex-col">
+                    <div className="flex items-center mb-8 px-2">
+                        <img src="https://p.ipic.vip/lhgb6n.png" alt="Logo" className="h-9 w-9 mr-2"/>
+                        <h1 className="text-base leading-5 font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-purple-700">EMS 教务编排</h1>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 mb-4">
+                        {systems.map(system => (
+                            <button
+                                key={system.id}
+                                onClick={() => setActiveSystem(system.id)}
+                                className={`w-full text-center px-3 py-3 rounded-xl text-sm font-semibold transition-all ${
+                                    activeSystem === system.id
+                                        ? 'bg-gradient-to-r from-indigo-700 to-purple-700 text-white shadow'
+                                        : 'bg-white/85 text-slate-700 hover:bg-white'
+                                }`}
+                            >
+                                {system.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex-1"></div>
+                    <div className="mt-auto rounded-2xl bg-white/60 backdrop-blur-xl border border-white/60 p-2 space-y-2">
+                        <div className="text-xs font-semibold text-slate-500 px-1">数据中心</div>
+                        {currentUser?.username && (
+                            <div className="text-xs text-slate-600 px-1">当前用户：{currentUser.username}</div>
+                        )}
+                        <button onClick={onSave} className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white hover:shadow-lg transition-all">
+                            <icons.Save className="h-5 w-5 mr-3" />
+                            <span className="font-bold">保存全部数据</span>
+                        </button>
+                        <button onClick={onCloudSave} className="w-full py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">云端保存</button>
+                        <button onClick={onCloudLoad} className="w-full py-2.5 rounded-xl bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 font-medium">云端读取</button>
+                        {currentUser && (
+                            <button onClick={onLogout} className="w-full py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 font-medium">退出登录</button>
+                        )}
+                    </div>
+                </nav>
+            );
+        };
+
+        const HistoryView = ({ history, onLoad, onDelete }) => {
+            return (
+                <div>
+                     <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50">
+                        {history.length === 0 ? (
+                            <div className="text-center text-gray-500 py-10">暂无历史记录</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {history.map(item => (
+                                    <div 
+                                        key={item.id} 
+                                        onClick={() => onLoad(item)}
+                                        className="bg-white border border-gray-200 rounded-xl p-6 cursor-pointer hover:shadow-xl hover:border-blue-300 transition-all transform hover:-translate-y-1 relative group"
+                                    >
+                                        <div className="flex justify-between items-start mb-4">
+                                            <h3 className="font-bold text-lg text-gray-800">{item.examSettings?.examName || '未命名考试'}</h3>
+                                            <button 
+                                                onClick={(e) => onDelete(e, item.id)}
+                                                className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="删除记录"
+                                            >
+                                                <icons.Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                        <div className="text-sm text-gray-600 space-y-2">
+                                            <p><span className="font-medium">保存时间:</span> {item.saveTime}</p>
+                                            <p><span className="font-medium">学年学期:</span> {item.examSettings?.schoolYear} - {item.examSettings?.term}</p>
+                                            <p><span className="font-medium">考场数量:</span> {item.classrooms?.length || 0}</p>
+                                            <p><span className="font-medium">考生人数:</span> {item.students?.length || 0}</p>
+                                            <p><span className="font-medium">已编排:</span> {item.arrangementResult?.length > 0 ? '是' : '否'}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                     </div>
+                </div>
+            );
+        };
+
+        const ExamSettings = ({ settings, setSettings, examSessions, setExamSessions }) => {
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setSettings(prev => ({ ...prev, [name]: value }));
+            };
+            
+            const handleSubTypeChange = (e) => {
+                const { value } = e.target;
+                if (value !== '自定义') {
+                    setSettings(prev => ({ ...prev, examSubType: value, customSubType: '' }));
+                } else {
+                    setSettings(prev => ({ ...prev, examSubType: '自定义' }));
+                }
+            };
+
+            const examTypes = {
+                '校内考试': ['月考', '阶段监测', '联盟考试', '自定义'],
+                '教育局统考': ['期末考试', '中考模拟考', '自定义'],
+            };
+
+            const addExamSession = () => {
+                setExamSessions(prev => [...prev, { id: `es_${Date.now()}`, subject: '语文', startTime: '2026-03-22T09:00', endTime: '2026-03-22T11:00' }]);
+            };
+
+            const updateExamSession = (id, key, value) => {
+                setExamSessions(prev => prev.map(s => s.id === id ? { ...s, [key]: value } : s));
+            };
+
+            const removeExamSession = (id) => {
+                if (!window.confirm('确定删除该考试场次吗？')) return;
+                setExamSessions(prev => prev.filter(s => s.id !== id));
+            };
+
+            const resetDefaultSessions = () => {
+                setExamSessions(buildDefaultExamSessions());
+            };
+
+            return (
+                <div className="flex justify-center">
+                    <div className="w-full max-w-5xl">
+                        <div className="bg-white/70 backdrop-blur-xl p-8 rounded-2xl shadow-lg border border-white/70 w-full space-y-6">
+                            <div className="flex space-x-4">
+                                <div className="flex-1">
+                                    <label className="block text-gray-700 font-medium mb-2">学年</label>
+                                    <input 
+                                        type="number" 
+                                        name="schoolYear" 
+                                        value={settings.schoolYear} 
+                                        onChange={handleInputChange} 
+                                        className="w-full p-2 border rounded-md" 
+                                        placeholder="例如: 2025"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-gray-700 font-medium mb-2">学期</label>
+                                    <select name="term" value={settings.term} onChange={handleInputChange} className="w-full p-2 border rounded-md">
+                                        <option value="1">第一学期</option>
+                                        <option value="2">第二学期</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-2">考试名称</label>
+                                <input type="text" name="examName" value={settings.examName} onChange={handleInputChange} className="w-full p-2 border rounded-md" placeholder="例如：期中考试"/>
+                            </div>
+                            <div className="flex space-x-4">
+                                <div className="flex-1">
+                                    <label className="block text-gray-700 font-medium mb-2">类型</label>
+                                    <select name="examType" value={settings.examType} onChange={(e) => {
+                                        setSettings(prev => ({...prev, examType: e.target.value, examSubType: examTypes[e.target.value][0], customSubType: ''}));
+                                    }} className="w-full p-2 border rounded-md">
+                                        {Object.keys(examTypes).map(type => <option key={type}>{type}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-gray-700 font-medium mb-2">子类型</label>
+                                    <select name="examSubType" value={settings.examSubType} onChange={handleSubTypeChange} className="w-full p-2 border rounded-md">
+                                        {examTypes[settings.examType].map(subType => <option key={subType} value={subType}>{subType}</option>)}
+                                    </select>
+                                    {settings.examSubType === '自定义' && (
+                                        <input
+                                            type="text"
+                                            name="customSubType"
+                                            value={settings.customSubType}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border rounded-md mt-2"
+                                            placeholder="请输入自定义子类型名称"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                            <div className="pt-2 border-t border-gray-100">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h2 className="font-bold text-lg text-gray-800">考试场次与时间</h2>
+                                    <div className="flex gap-2">
+                                        <button onClick={resetDefaultSessions} className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50">恢复5科默认</button>
+                                        <button onClick={addExamSession} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
+                                            <icons.Plus className="h-4 w-4 mr-2" />
+                                            新增场次
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full bg-white border rounded-lg">
+                                        <thead className="bg-gray-100">
+                                            <tr>
+                                                <th className="text-left py-2 px-3">学科</th>
+                                                <th className="text-left py-2 px-3">开始时间</th>
+                                                <th className="text-left py-2 px-3">结束时间</th>
+                                                <th className="text-left py-2 px-3">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {examSessions.map(session => (
+                                                <tr key={session.id} className="border-b">
+                                                    <td className="py-2 px-3">
+                                                        <select value={session.subject} onChange={(e) => updateExamSession(session.id, 'subject', e.target.value)} className="w-full p-2 border rounded-md">
+                                                            {['语文', '数学', '英语', '科学', '社会'].map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td className="py-2 px-3">
+                                                        <input type="datetime-local" value={session.startTime} onChange={(e) => updateExamSession(session.id, 'startTime', e.target.value)} className="w-full p-2 border rounded-md" />
+                                                    </td>
+                                                    <td className="py-2 px-3">
+                                                        <input type="datetime-local" value={session.endTime} onChange={(e) => updateExamSession(session.id, 'endTime', e.target.value)} className="w-full p-2 border rounded-md" />
+                                                    </td>
+                                                    <td className="py-2 px-3">
+                                                        <button onClick={() => removeExamSession(session.id)} className="text-red-500 hover:text-red-700">删除</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ClassroomInfo = ({ classrooms, setClassrooms }) => {
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [editingClassroom, setEditingClassroom] = useState(null);
+            const [selectedClassrooms, setSelectedClassrooms] = useState([]);
+
+            const handleEdit = (classroom) => {
+                setEditingClassroom(classroom);
+                setIsModalOpen(true);
+            };
+
+            const handleAddNew = () => {
+                setEditingClassroom({ id: `c${Date.now()}`, grade: '7', name: '', number: '', capacity: 30, layout: '5', layoutDetail: '' });
+                setIsModalOpen(true);
+            };
+
+            const handleSave = (classroom) => {
+                if (editingClassroom && classrooms.some(c => c.id === classroom.id)) {
+                    setClassrooms(classrooms.map(c => c.id === classroom.id ? classroom : c));
+                } else {
+                    setClassrooms([...classrooms, classroom]);
+                }
+                setIsModalOpen(false);
+                setEditingClassroom(null);
+            };
+
+            const handleDelete = (id) => {
+                if (window.confirm('确定要删除这个考场吗？')) {
+                    setClassrooms(classrooms.filter(c => c.id !== id));
+                }
+            };
+            
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const bstr = evt.target.result;
+                    const wb = XLSX.read(bstr, { type: 'binary' });
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+                    const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                    
+                    const importedClassrooms = data.slice(1).map((row, index) => ({
+                        id: `imported_${Date.now()}_${index}`,
+                        grade: normalizeGrade(row[0]) || '7',
+                        name: String(row[1] || ''),
+                        number: String(row[2] || ''),
+                        capacity: Number(row[3] || 30),
+                        layout: String(row[4] || '5'),
+                        layoutDetail: String(row[5] || ''),
+                    }));
+                    setClassrooms(prev => [...prev, ...importedClassrooms]);
+                    alert(`${importedClassrooms.length} 个考场已成功导入！`);
+                };
+                reader.readAsBinaryString(file);
+            };
+            
+            const handleDownloadTemplate = () => {
+                const headers = ['年级', '考场名称', '考场号', '容纳人数', '列数', '每列人数(逗号隔开)'];
+                const exampleData = [
+                    ['7', '物理实验室', '第01考场', 30, 5, '6,6,6,6,6'],
+                    ['8', '多媒体教室(一)', '第02考场', 40, 6, '7,7,6,7,7,6']
+                ];
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...exampleData]);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '考场信息模板');
+                XLSX.writeFile(wb, '考场信息导入模板.xlsx');
+            };
+
+            const handleSelect = (classroomId) => {
+                setSelectedClassrooms(prev => 
+                    prev.includes(classroomId) ? prev.filter(id => id !== classroomId) : [...prev, classroomId]
+                );
+            };
+
+            const handleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelectedClassrooms(classrooms.map(c => c.id));
+                } else {
+                    setSelectedClassrooms([]);
+                }
+            };
+
+            const handleDeleteSelected = () => {
+                if (selectedClassrooms.length === 0) {
+                    alert('请先选择要删除的考场。');
+                    return;
+                }
+                if (window.confirm(`确定要删除选中的 ${selectedClassrooms.length} 个考场吗？`)) {
+                    setClassrooms(prev => prev.filter(c => !selectedClassrooms.includes(c.id)));
+                    setSelectedClassrooms([]);
+                }
+            };
+
+            return (
+                <div>
+                    <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center space-x-4">
+                                {selectedClassrooms.length > 0 && (
+                                    <button onClick={handleDeleteSelected} className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 flex items-center">
+                                        <icons.Trash2 className="h-4 w-4 mr-2" />
+                                        删除选中 ({selectedClassrooms.length})
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex space-x-2">
+                                <button onClick={handleDownloadTemplate} className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center">
+                                    <icons.Download className="h-4 w-4 mr-2" />
+                                    下载模板
+                                </button>
+                                <label className="bg-blue-500 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-600 flex items-center">
+                                    <icons.Upload className="h-4 w-4 mr-2" />
+                                    从Excel导入
+                                    <input type="file" className="hidden" onChange={handleFileUpload} accept=".xlsx, .xls, .csv" />
+                                </label>
+                                <button onClick={handleAddNew} className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 flex items-center">
+                                    <icons.Plus className="h-4 w-4 mr-2" />
+                                    新增考场
+                                </button>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full bg-white">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="p-3"><input type="checkbox" onChange={handleSelectAll} checked={classrooms.length > 0 && selectedClassrooms.length === classrooms.length} /></th>
+                                        {['年级', '考场名称', '考场号', '容纳人数', '列数', '每列人数布局', '操作'].map(h => 
+                                            <th key={h} className="text-left py-3 px-4 font-medium text-gray-600">{h}</th>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {classrooms.map(c => (
+                                        <tr key={c.id} className={`border-b hover:bg-gray-50 ${selectedClassrooms.includes(c.id) ? 'bg-blue-100' : ''}`}>
+                                            <td className="p-3"><input type="checkbox" checked={selectedClassrooms.includes(c.id)} onChange={() => handleSelect(c.id)} /></td>
+                                            <td className="py-3 px-4">{c.grade}</td>
+                                            <td className="py-3 px-4">{c.name}</td>
+                                            <td className="py-3 px-4">{c.number}</td>
+                                            <td className="py-3 px-4">{c.capacity}</td>
+                                            <td className="py-3 px-4">{c.layout}</td>
+                                            <td className="py-3 px-4">{c.layoutDetail}</td>
+                                            <td className="py-3 px-4 flex space-x-2">
+                                                <button onClick={() => handleEdit(c)} className="text-blue-500 hover:text-blue-700">编辑</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <ClassroomModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} classroom={editingClassroom} onSave={handleSave} />
+                </div>
+            );
+        };
+        
+        const ClassroomModal = ({ isOpen, onClose, classroom, onSave }) => {
+            const [data, setData] = useState(null);
+
+            useEffect(() => {
+                setData(classroom);
+            }, [classroom]);
+
+            if (!data) return null;
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                let updatedData = { ...data, [name]: value };
+                
+                if (name === 'layoutDetail') {
+                    const capacity = value.split(',').map(n => parseInt(n.trim()) || 0).reduce((a, b) => a + b, 0);
+                    updatedData.capacity = capacity;
+                }
+                if (name === 'layout') {
+                    const layoutDetail = Array(parseInt(value) || 0).fill(Math.floor(data.capacity / (parseInt(value) || 1))).join(',');
+                    updatedData.layoutDetail = layoutDetail;
+                }
+
+                setData(updatedData);
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave(data);
+            };
+
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title={classroom && classroom.id.startsWith('c') ? "编辑考场" : "新增考场"}>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                       <div>
+                            <label>年级</label>
+                            <select name="grade" value={data.grade} onChange={handleChange} className="w-full p-2 border rounded-md">
+                                <option value="7">7年级</option>
+                                <option value="8">8年级</option>
+                                <option value="9">9年级</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>考场名称</label>
+                            <input type="text" name="name" value={data.name} onChange={handleChange} className="w-full p-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label>考场号</label>
+                            <input type="text" name="number" value={data.number} onChange={handleChange} className="w-full p-2 border rounded-md" placeholder="例如: 第01考场" />
+                        </div>
+                        <div>
+                            <label>列数</label>
+                            <input type="number" name="layout" value={data.layout} onChange={handleChange} className="w-full p-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label>每列人数 (用逗号隔开)</label>
+                            <input type="text" name="layoutDetail" value={data.layoutDetail} onChange={handleChange} className="w-full p-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label>自动计算的总容量</label>
+                            <input type="number" name="capacity" value={data.capacity} readOnly className="w-full p-2 border rounded-md bg-gray-100" />
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">取消</button>
+                            <button type="submit" className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">保存</button>
+                        </div>
+                    </form>
+                </Modal>
+            );
+        };
+
+        const StudentInfo = ({ students, setStudents }) => {
+            const [filterGrade, setFilterGrade] = useState('all');
+            const [selectedStudents, setSelectedStudents] = useState([]);
+
+            const getGradeFromClass = (className) => {
+                if (typeof className === 'string' && className.length > 0) {
+                    return className.charAt(0);
+                }
+                return null;
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const bstr = evt.target.result;
+                    const wb = XLSX.read(bstr, { type: 'binary' });
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+                    const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+                    const headerRow = Array.isArray(data[0]) ? data[0] : [];
+                    const normalizedHeaders = headerRow.map(h => String(h || '').trim());
+                    const hasHeader = normalizedHeaders.some(h => ['年级', '学籍辅号', '班级', '班内序号', '学生姓名', '姓名', '考号'].includes(h));
+                    const startRowIndex = hasHeader ? 1 : 0;
+
+                    const getIndex = (candidates, fallback) => {
+                        const idx = normalizedHeaders.findIndex(h => candidates.includes(h));
+                        return idx >= 0 ? idx : fallback;
+                    };
+
+                    const gradeIdx = getIndex(['年级'], 0);
+                    const studentIdIdx = getIndex(['学籍辅号', '学号', '学籍号'], 1);
+                    const classIdx = getIndex(['班级'], 2);
+                    const classSeatIdx = getIndex(['班内序号', '座号'], 3);
+                    const nameIdx = getIndex(['学生姓名', '姓名'], 4);
+                    const categoryIdx = getIndex(['分类标记', '分类'], 5);
+                    const examNumberIdx = getIndex(['考号'], 6);
+
+                    const importedStudents = data.slice(startRowIndex).map((row, index) => {
+                        const className = String(row[classIdx] || '');
+                        const grade = normalizeGrade(row[gradeIdx]);
+                        const examNumber = String(row[examNumberIdx] || '').trim();
+                        return {
+                            id: `imported_${Date.now()}_${index}`,
+                            grade: grade || '未分类',
+                            studentId: String(row[studentIdIdx] || ''),
+                            class: className,
+                            classSeat: String(row[classSeatIdx] || ''),
+                            name: String(row[nameIdx] || ''),
+                            examNumber,
+                            category: String(row[categoryIdx] || '1'),
+                            special: String(row[categoryIdx]).toLowerCase() === '特殊分类' || String(row[categoryIdx]).toLowerCase() === 'special',
+                        }
+                    });
+                    setStudents(prev => [...prev, ...importedStudents]);
+                    alert(`${importedStudents.length} 名学生已成功导入！`);
+                };
+                reader.readAsBinaryString(file);
+            };
+
+            const filteredStudents = useMemo(() => {
+                if (filterGrade === 'all') return students;
+                return students.filter(s => normalizeGrade(s.grade) === filterGrade);
+            }, [students, filterGrade]);
+
+            const gradeOptions = useMemo(() => {
+                const grades = new Set(students.map(s => normalizeGrade(s.grade)).filter(Boolean));
+                return Array.from(grades).sort();
+            }, [students]);
+
+            const handleSelect = (studentId) => {
+                setSelectedStudents(prev => 
+                    prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]
+                );
+            };
+
+            const handleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelectedStudents(filteredStudents.map(s => s.id));
+                } else {
+                    setSelectedStudents([]);
+                }
+            };
+
+            const handleDeleteSelected = () => {
+                if (selectedStudents.length === 0) {
+                    alert('请先选择要删除的学生。');
+                    return;
+                }
+                if (window.confirm(`确定要删除选中的 ${selectedStudents.length} 名学生吗？`)) {
+                    setStudents(prev => prev.filter(s => !selectedStudents.includes(s.id)));
+                    setSelectedStudents([]);
+                }
+            };
+            
+            const handleDownloadTemplate = () => {
+                const headers = ['年级', '学籍辅号', '班级', '班内序号', '学生姓名', '考号', '分类标记'];
+                const exampleData = [
+                    ['', 'G440101201207010001', '701', '1', '张三', '25010107010101', '1'],
+                    ['', 'G440101201207010002', '701', '2', '李四', '25010107010102', '1'],
+                    ['', 'G440101201208010001', '801', '1', '王五', '25010108020101', '2'],
+                    ['', 'G440101201208020002', '802', '2', '赵六', '25010108020202', '特殊分类'],
+                ];
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...exampleData]);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '考生信息模板');
+                XLSX.writeFile(wb, '考生信息导入模板.xlsx');
+            };
+
+            return (
+                <div>
+                    <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center space-x-4">
+                                <label>筛选年级:</label>
+                                <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="p-2 border rounded-md">
+                                    <option value="all">所有年级</option>
+                                    {gradeOptions.map(g => (
+                                        <option key={g} value={g}>{formatGradeLabel(g)}</option>
+                                    ))}
+                                </select>
+                                {selectedStudents.length > 0 && (
+                                    <button onClick={handleDeleteSelected} className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 flex items-center">
+                                        <icons.Trash2 className="h-4 w-4 mr-2" />
+                                        删除选中 ({selectedStudents.length})
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex space-x-2">
+                                <button onClick={handleDownloadTemplate} className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center">
+                                    <icons.Download className="h-4 w-4 mr-2" />
+                                    下载模板
+                                </button>
+                                <label className="bg-blue-500 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-600 flex items-center">
+                                    <icons.Upload className="h-4 w-4 mr-2" />
+                                    从Excel导入
+                                    <input type="file" className="hidden" onChange={handleFileUpload} accept=".xlsx, .xls, .csv" />
+                                </label>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                           <table className="min-w-full bg-white">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="p-3"><input type="checkbox" onChange={handleSelectAll} checked={filteredStudents.length > 0 && selectedStudents.length === filteredStudents.length} /></th>
+                                        {['年级', '学籍辅号', '姓名', '考号', '班级', '班内序号', '分类标记', '特殊考生'].map(h => 
+                                            <th key={h} className="text-left py-3 px-4 font-medium text-gray-600">{h}</th>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredStudents.map(s => (
+                                        <tr key={s.id} className={`border-b hover:bg-gray-50 ${selectedStudents.includes(s.id) ? 'bg-blue-100' : ''}`}>
+                                            <td className="p-3"><input type="checkbox" checked={selectedStudents.includes(s.id)} onChange={() => handleSelect(s.id)} /></td>
+                                            <td className="py-3 px-4">{formatGradeLabel(s.grade)}</td>
+                                            <td className="py-3 px-4 font-mono text-sm">{s.studentId}</td>
+                                            <td className="py-3 px-4">{s.name}</td>
+                                            <td className="py-3 px-4 font-mono text-sm">{s.examNumber}</td>
+                                            <td className="py-3 px-4">{s.class}</td>
+                                            <td className="py-3 px-4">{s.classSeat}</td>
+                                            <td className="py-3 px-4">{s.category}</td>
+                                            <td className="py-3 px-4">{s.special ? '是' : '否'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ExamNumberRule = ({ rule, setRule, useImportedExamNumber, setUseImportedExamNumber }) => {
+            const [draggedIndex, setDraggedIndex] = useState(null);
+
+            const sources = [
+                { value: 'schoolYear', label: '学年' },
+                { value: 'term', label: '学期' },
+                { value: 'grade', label: '年级' },
+                { value: 'class', label: '班级' },
+                { value: 'classSeat', label: '班内序号' },
+                { value: 'classroomNumber', label: '考场号' },
+                { value: 'seatNumber', label: '座位号' },
+                { value: 'schoolCode', label: '学校代码' },
+                { value: 'fixedString', label: '固定字符串' },
+            ];
+
+            const handleUpdate = (id, field, value) => {
+                if (useImportedExamNumber) return;
+                setRule(rule.map(r => r.id === id ? { ...r, [field]: value } : r));
+            };
+
+            const handleAdd = () => {
+                if (useImportedExamNumber) return;
+                setRule([...rule, { id: `r${Date.now()}`, name: '新分段', source: 'fixedString', length: 2, value: '' }]);
+            };
+            
+            const handleDelete = (id) => {
+                if (useImportedExamNumber) return;
+                setRule(rule.filter(r => r.id !== id));
+            };
+
+            const handleDragStart = (e, index) => {
+                if (useImportedExamNumber) return;
+                setDraggedIndex(index);
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+            };
+
+            const handleDrop = (e, dropIndex) => {
+                e.preventDefault();
+                if (useImportedExamNumber) return;
+                if (draggedIndex === null || draggedIndex === dropIndex) {
+                    setDraggedIndex(null);
+                    return;
+                }
+                const newRule = [...rule];
+                const draggedItem = newRule.splice(draggedIndex, 1)[0];
+                newRule.splice(dropIndex, 0, draggedItem);
+                setRule(newRule);
+                setDraggedIndex(null);
+            };
+
+            const totalLength = useMemo(() => rule.reduce((acc, r) => acc + Number(r.length || 0), 0), [rule]);
+
+            return (
+                <div>
+                    <div className="bg-white/90 backdrop-blur p-8 rounded-2xl shadow-lg border border-white/50 max-w-5xl">
+                        <div className="mb-6 flex flex-col gap-3">
+                            <label className="flex items-center space-x-2 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={useImportedExamNumber}
+                                    onChange={(e) => setUseImportedExamNumber(e.target.checked)}
+                                    className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-800 font-medium">直接引用上传表格中的考号（跳过本页规则）</span>
+                            </label>
+                            {useImportedExamNumber && (
+                                <div className="text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                    已启用直接引用考号：编排结果将使用“考生信息”中导入的考号字段，本页规则暂不生效。
+                                </div>
+                            )}
+                        </div>
+                        <div className="mb-6 p-4 border-2 border-dashed rounded-lg flex items-center justify-center space-x-2 bg-gray-50">
+                            {rule.map(r => (
+                                <div key={r.id} className="p-2 bg-blue-100 border border-blue-300 rounded text-center">
+                                    <div className="text-sm text-blue-800 font-semibold">{r.name}</div>
+                                    <div className="text-xs text-blue-600">{r.length}位</div>
+                                </div>
+                            ))}
+                            <div className="p-2 bg-gray-200 rounded text-center">
+                                <div className="text-sm font-semibold">总长度</div>
+                                <div className={`text-xs ${totalLength === 12 ? 'text-green-600' : 'text-red-600'}`}>{totalLength}位</div>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            {rule.map((r, index) => (
+                                <div 
+                                    key={r.id}
+                                    draggable={!useImportedExamNumber}
+                                    onDragStart={(e) => handleDragStart(e, index)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, index)}
+                                    onDragEnd={() => setDraggedIndex(null)}
+                                    className={`p-2 border rounded-lg bg-gray-50 transition-shadow flex items-center space-x-4 ${draggedIndex === index ? 'shadow-lg opacity-50' : 'shadow-sm'} ${useImportedExamNumber ? 'opacity-60' : ''}`}
+                                >
+                                    <span className={`${useImportedExamNumber ? 'cursor-not-allowed text-gray-300' : 'cursor-move text-gray-400 hover:text-gray-600'}`}>
+                                        <icons.GripVertical />
+                                    </span>
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center flex-grow">
+                                        <input type="text" placeholder="分段名称" value={r.name} onChange={e => handleUpdate(r.id, 'name', e.target.value)} disabled={useImportedExamNumber} className="p-2 border rounded-md" />
+                                        <select value={r.source} onChange={e => handleUpdate(r.id, 'source', e.target.value)} disabled={useImportedExamNumber} className="p-2 border rounded-md">
+                                            {sources.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                        </select>
+                                        {(r.source === 'fixedString' || r.source === 'schoolCode') ? (
+                                            <input 
+                                                type="text" 
+                                                placeholder="自定义值" 
+                                                value={r.value || ''} 
+                                                onChange={e => handleUpdate(r.id, 'value', e.target.value)} 
+                                                disabled={useImportedExamNumber}
+                                                className="p-2 border rounded-md" 
+                                            />
+                                        ) : (
+                                            <div className="p-2 text-gray-400 text-center italic"> (自动获取) </div>
+                                        )}
+                                        <input type="number" placeholder="长度" value={r.length} onChange={e => handleUpdate(r.id, 'length', e.target.value)} disabled={useImportedExamNumber} className="p-2 border rounded-md" />
+                                        <button onClick={() => handleDelete(r.id)} disabled={useImportedExamNumber} className={`flex items-center justify-center ${useImportedExamNumber ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:text-red-700'}`}>
+                                            <icons.Trash2 size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={handleAdd} disabled={useImportedExamNumber} className={`mt-6 px-4 py-2 rounded-lg flex items-center ${useImportedExamNumber ? 'bg-gray-300 text-white cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>
+                            <icons.Plus className="h-4 w-4 mr-2" />
+                            添加分段
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const ArrangementEngine = ({ students, classrooms, examSessions, examSettings, examNumberRule, useImportedExamNumber, arrangementResult, setArrangementResult, classDisplaySetting }) => {
+            const [selectedGrades, setSelectedGrades] = useState([]);
+            const [arrangementPrinciple, setArrangementPrinciple] = useState('avoid'); // 'random' or 'avoid'
+            const [strictCategoryGrouping, setStrictCategoryGrouping] = useState(false);
+            const [categoryFillMode, setCategoryFillMode] = useState('independent'); // 'independent' or 'continuous'
+            const [keepOriginalOrder, setKeepOriginalOrder] = useState(false);
+            const [ignoreGradeMatching, setIgnoreGradeMatching] = useState(false);
+            const [selectedExamIds, setSelectedExamIds] = useState([]);
+            const [selectedClassroomIds, setSelectedClassroomIds] = useState([]);
+            const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+            const [studentGradeFilter, setStudentGradeFilter] = useState('all');
+            const [studentClassFilter, setStudentClassFilter] = useState('all');
+
+            const gradeStats = useMemo(() => {
+                const grades = new Set([
+                    ...students.map(s => normalizeGrade(s.grade)),
+                    ...classrooms.map(c => normalizeGrade(c.grade)),
+                ].filter(Boolean));
+
+                const classroomTotalCount = classrooms.length;
+
+                return Array.from(grades).sort().map(grade => {
+                    const studentCount = students.reduce((acc, s) => acc + (normalizeGrade(s.grade) === grade ? 1 : 0), 0);
+                    const classroomCount = classrooms.reduce((acc, c) => acc + (normalizeGrade(c.grade) === grade ? 1 : 0), 0);
+                    return {
+                        grade,
+                        studentCount,
+                        classroomCount,
+                        canArrange: ignoreGradeMatching ? (studentCount > 0 && classroomTotalCount > 0) : (studentCount > 0 && classroomCount > 0),
+                    };
+                });
+            }, [students, classrooms, ignoreGradeMatching]);
+
+            const gradeStatsMap = useMemo(() => {
+                const map = new Map();
+                gradeStats.forEach(s => map.set(s.grade, s));
+                return map;
+            }, [gradeStats]);
+
+            useEffect(() => {
+                setSelectedExamIds((examSessions || []).map(e => e.id));
+            }, [examSessions]);
+            useEffect(() => {
+                setSelectedClassroomIds(classrooms.map(c => c.id));
+            }, [classrooms]);
+            useEffect(() => {
+                setSelectedStudentIds(students.map(s => s.id));
+            }, [students]);
+            useEffect(() => {
+                const autoGrades = gradeStats.filter(g => g.canArrange).map(g => g.grade);
+                if (autoGrades.length > 0 && selectedGrades.length === 0) setSelectedGrades(autoGrades);
+            }, [gradeStats, selectedGrades.length]);
+
+            const handleGradeSelection = (grade) => {
+                const stats = gradeStatsMap.get(grade);
+                if (stats && !stats.canArrange) return;
+                setSelectedGrades(prev => 
+                    prev.includes(grade) ? prev.filter(g => g !== grade) : [...prev, grade]
+                );
+            };
+
+            const handleArrange = () => {
+                if (selectedGrades.length === 0) {
+                    alert('请至少选择一个要编排的年级。');
+                    return;
+                }
+
+                const invalidGrades = selectedGrades
+                    .map(g => ({
+                        grade: normalizeGrade(g),
+                        stats: gradeStatsMap.get(normalizeGrade(g)),
+                    }))
+                    .filter(x => !x.stats || !x.stats.canArrange);
+
+                if (invalidGrades.length > 0) {
+                    const detail = invalidGrades.map(x => {
+                        const studentCount = x.stats?.studentCount ?? 0;
+                        const classroomCount = x.stats?.classroomCount ?? 0;
+                        return `${x.grade}年级：考生 ${studentCount} 人 / 考场 ${classroomCount} 间`;
+                    }).join('\n');
+                    alert(`选中的年级缺少考生或考场信息，无法编排！\n\n${detail}`);
+                    return;
+                }
+
+                if (!window.confirm(`确定要为选中的 ${selectedGrades.join(', ')}年级 进行编排吗？这会覆盖现有的编排结果。`)) return;
+
+                const selectedGradeSet = new Set(selectedGrades.map(g => normalizeGrade(g)).filter(Boolean));
+                const studentsToArrange = students.filter(s => selectedStudentIds.includes(s.id) && selectedGradeSet.has(normalizeGrade(s.grade)));
+                const classroomsToUseRaw = classrooms.filter(c => selectedClassroomIds.includes(c.id));
+                const classroomsToUse = ignoreGradeMatching ? classroomsToUseRaw : classroomsToUseRaw.filter(c => selectedGradeSet.has(normalizeGrade(c.grade)));
+                if (selectedExamIds.length === 0) {
+                    alert('请至少选择一个考试场次。');
+                    return;
+                }
+                
+                if (studentsToArrange.length === 0 || classroomsToUse.length === 0) {
+                    alert('选中的年级没有考生或考场信息，无法编排！');
+                    return;
+                }
+
+                // --- Helper Functions ---
+                const fisherYatesShuffle = (array) => {
+                    for (let i = array.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [array[i], array[j]] = [array[j], array[i]];
+                    }
+                    return array;
+                };
+
+                const optimizeClassroom = (students, layoutStr) => {
+                    if (!layoutStr) return students;
+                    const cols = layoutStr.split(',').map(Number);
+                    const numCols = cols.length;
+                    
+                    // Build 2D Grid map: grid[row][col] = studentIndex in 'students' array
+                    let gridMap = []; // Stores {r, c} for each linear index
+                    let cellToLinearIndex = {}; // "r,c" -> linearIndex
+                    
+                    let currentIndex = 0;
+                    for (let c = 0; c < numCols; c++) {
+                        for (let r = 0; r < cols[c]; r++) {
+                            if (currentIndex < students.length) {
+                                gridMap[currentIndex] = { r, c };
+                                cellToLinearIndex[`${r},${c}`] = currentIndex;
+                                currentIndex++;
+                            }
+                        }
+                    }
+
+                    const getStudentAt = (r, c, currentList) => {
+                        const idx = cellToLinearIndex[`${r},${c}`];
+                        if (idx === undefined) return null;
+                        return currentList[idx];
+                    };
+
+                    const countConflicts2D = (list) => {
+                        let conflicts = 0;
+                        for (let i = 0; i < list.length; i++) {
+                            const { r, c } = gridMap[i];
+                            const me = list[i];
+                            
+                            // Check Vertical Neighbor (r+1, c)
+                            let neighbor = getStudentAt(r + 1, c, list);
+                            if (neighbor && neighbor.class === me.class) conflicts++;
+                            
+                            // Check Horizontal Neighbor (r, c+1)
+                            neighbor = getStudentAt(r, c + 1, list);
+                            if (neighbor && neighbor.class === me.class) conflicts++;
+                        }
+                        return conflicts;
+                    };
+
+                    let currentList = [...students];
+                    let currentCost = countConflicts2D(currentList);
+                    const maxIter = 10000; // Reduced iter for performance in loops
+
+                    for (let iter = 0; iter < maxIter; iter++) {
+                        if (currentCost === 0) break;
+                        const idx1 = Math.floor(Math.random() * currentList.length);
+                        const idx2 = Math.floor(Math.random() * currentList.length);
+                        if (idx1 === idx2) continue;
+                        [currentList[idx1], currentList[idx2]] = [currentList[idx2], currentList[idx1]];
+                        const newCost = countConflicts2D(currentList);
+                        if (newCost <= currentCost) {
+                            currentCost = newCost;
+                        } else {
+                            [currentList[idx1], currentList[idx2]] = [currentList[idx2], currentList[idx1]];
+                        }
+                    }
+                    return currentList;
+                };
+
+                let finalArrangement = [];
+
+                if (keepOriginalOrder) {
+                    const totalCapacity = classroomsToUse.reduce((sum, c) => sum + getClassroomEffectiveCapacity(c), 0);
+                    if (studentsToArrange.length > totalCapacity) {
+                        alert(`错误：考场容量不足（考生 ${studentsToArrange.length} 人，座位 ${totalCapacity} 个），无法按原序完成编排！`);
+                        return;
+                    }
+
+                    let studentIndex = 0;
+                    for (const classroom of classroomsToUse) {
+                        const roomCapacity = getClassroomEffectiveCapacity(classroom);
+                        if (roomCapacity <= 0) continue;
+                        for (let i = 0; i < roomCapacity; i++) {
+                            if (studentIndex >= studentsToArrange.length) break;
+                            finalArrangement.push({
+                                ...studentsToArrange[studentIndex],
+                                classroomName: classroom.name,
+                                classroomNumber: classroom.number,
+                                seatNumber: i + 1,
+                            });
+                            studentIndex++;
+                        }
+                        if (studentIndex >= studentsToArrange.length) break;
+                    }
+                } else if (strictCategoryGrouping) {
+                     // --- Strict Category Grouping Mode ---
+                     // Group all students by category
+                     const studentsByCategory = {};
+                     studentsToArrange.forEach(s => {
+                         const cat = s.category || '未分类';
+                         if (!studentsByCategory[cat]) studentsByCategory[cat] = [];
+                         studentsByCategory[cat].push(s);
+                     });
+
+                     // Sort categories
+                     const categories = Object.keys(studentsByCategory).sort((a, b) => {
+                         const numA = parseFloat(a);
+                         const numB = parseFloat(b);
+                         if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                         return a.localeCompare(b);
+                     });
+
+                     let classroomIndex = 0;
+                     let currentRoomSeatUsedCount = 0; // Tracks seats used in the current classroom across categories
+
+                     for (const cat of categories) {
+                         let catStudents = studentsByCategory[cat];
+                         // Shuffle students within category
+                         catStudents = fisherYatesShuffle([...catStudents]);
+
+                         let catStudentIdx = 0;
+                         
+                         // Assign to classrooms
+                         while (catStudentIdx < catStudents.length) {
+                             if (classroomIndex >= classroomsToUse.length) {
+                                 alert(`错误：考场数量不足，无法完成分类 "${cat}" 的编排！`);
+                                 return;
+                             }
+
+                            const classroom = classroomsToUse[classroomIndex];
+                            const roomCapacity = getClassroomEffectiveCapacity(classroom);
+                            if (roomCapacity <= 0) {
+                                classroomIndex++;
+                                currentRoomSeatUsedCount = 0;
+                                continue;
+                            }
+                            const remainingInCat = catStudents.length - catStudentIdx;
+                             
+                             // Calculate available seats in current room
+                             // If continuous mode: use capacity - used
+                             // If independent mode: capacity (since we always start fresh or fill fresh, logic below handles switch)
+                            const availableSeats = roomCapacity - currentRoomSeatUsedCount;
+                             
+                             // If no seats left (shouldn't happen if logic is correct, but safe guard)
+                             if (availableSeats <= 0) {
+                                 classroomIndex++;
+                                 currentRoomSeatUsedCount = 0;
+                                 continue;
+                             }
+
+                             const countToFill = Math.min(remainingInCat, availableSeats);
+                             
+                             const chunk = catStudents.slice(catStudentIdx, catStudentIdx + countToFill);
+                             let placedChunk = chunk;
+                             
+                             if (arrangementPrinciple === 'avoid') {
+                                 // Note: Optimization might be less effective if filling partial rooms sequentially
+                                 // But we still apply it to the chunk being inserted
+                                 placedChunk = optimizeClassroom(chunk, classroom.layoutDetail);
+                             }
+
+                             placedChunk.forEach((s, i) => {
+                                 finalArrangement.push({
+                                     ...s,
+                                     classroomName: classroom.name,
+                                     classroomNumber: classroom.number,
+                                     seatNumber: currentRoomSeatUsedCount + i + 1 // Offset by already used seats
+                                 });
+                             });
+
+                             catStudentIdx += countToFill;
+                             currentRoomSeatUsedCount += countToFill;
+                             
+                             // Check if room is full
+                            if (currentRoomSeatUsedCount >= roomCapacity) {
+                                classroomIndex++;
+                                currentRoomSeatUsedCount = 0;
+                            } 
+                             // If room is NOT full, but category IS finished:
+                             else if (catStudentIdx >= catStudents.length) {
+                                 if (categoryFillMode === 'independent') {
+                                     // Independent mode: Force move to next room, leave rest empty
+                                     classroomIndex++;
+                                     currentRoomSeatUsedCount = 0;
+                                 }
+                                 // Continuous mode: Do nothing. Keep classroomIndex and currentRoomSeatUsedCount as is.
+                                 // Next category will pick up from here.
+                             }
+                         }
+                     }
+                } else {
+                    // --- Original Mode (Random / Avoid) ---
+                    const specialStudents = studentsToArrange.filter(s => s.special);
+                    let regularStudents = studentsToArrange.filter(s => !s.special);
+
+                    regularStudents = fisherYatesShuffle([...regularStudents]);
+
+                    if (arrangementPrinciple === 'avoid') {
+                        let optimizedStudents = [];
+                        let studentIndex = 0;
+                        const regularClassrooms = classroomsToUse.slice(0, -1);
+                        for (const classroom of regularClassrooms) {
+                            const roomCapacity = getClassroomEffectiveCapacity(classroom);
+                            const chunk = regularStudents.slice(studentIndex, studentIndex + roomCapacity);
+                            studentIndex += roomCapacity;
+                            if (chunk.length > 0) {
+                                optimizedStudents.push(...optimizeClassroom(chunk, classroom.layoutDetail));
+                            }
+                        }
+                        const remainingRegular = regularStudents.slice(studentIndex);
+                        if (remainingRegular.length > 0) {
+                             const lastClassroom = classroomsToUse[classroomsToUse.length - 1];
+                             if (lastClassroom) {
+                                 optimizedStudents.push(...optimizeClassroom(remainingRegular, lastClassroom.layoutDetail));
+                             } else {
+                                 optimizedStudents.push(...remainingRegular);
+                             }
+                        }
+                        regularStudents = optimizedStudents;
+                    }
+
+                    let studentIndex = 0;
+                    const regularClassrooms = classroomsToUse.slice(0, -1);
+                    for (const classroom of regularClassrooms) {
+                        if (studentIndex >= regularStudents.length) break;
+                        const roomCapacity = getClassroomEffectiveCapacity(classroom);
+                        if (roomCapacity <= 0) continue;
+                        for (let i = 0; i < roomCapacity; i++) {
+                            if (studentIndex >= regularStudents.length) break;
+                            finalArrangement.push({ ...regularStudents[studentIndex], classroomName: classroom.name, classroomNumber: classroom.number, seatNumber: i + 1 });
+                            studentIndex++;
+                        }
+                    }
+                    const lastClassroom = classroomsToUse[classroomsToUse.length - 1];
+                    const lastClassroomStudents = [...regularStudents.slice(studentIndex), ...specialStudents];
+                    const lastRoomCapacity = getClassroomEffectiveCapacity(lastClassroom);
+                    if (!lastClassroom || lastRoomCapacity <= 0) {
+                        alert('错误：缺少可用考场座位信息，无法完成编排。');
+                        return;
+                    }
+                    if (lastClassroomStudents.length > lastRoomCapacity) {
+                        alert(`错误：考场容量不足（考生 ${studentsToArrange.length} 人，座位 ${classroomsToUse.reduce((sum, c) => sum + getClassroomEffectiveCapacity(c), 0)} 个），无法完成编排！`);
+                        return;
+                    }
+                    lastClassroomStudents.forEach((student, i) => {
+                        if(lastClassroom) {
+                            finalArrangement.push({ ...student, classroomName: lastClassroom.name, classroomNumber: lastClassroom.number, seatNumber: i + 1 });
+                        }
+                    });
+                }
+                if (useImportedExamNumber) {
+                    const missingCount = finalArrangement.reduce((acc, s) => acc + (!String(s.examNumber || '').trim() ? 1 : 0), 0);
+                    if (missingCount > 0) {
+                        alert(`错误：已启用直接引用考号，但有 ${missingCount} 名考生未导入考号。请在考生导入表中补充“考号”列后重新导入。`);
+                        return;
+                    }
+                }
+
+                const resultWithExamNumbers = useImportedExamNumber
+                    ? finalArrangement.map(student => ({ ...student, examNumber: String(student.examNumber || '').trim() }))
+                    : finalArrangement.map(student => {
+                        let examNumber = '';
+                        examNumberRule.forEach(rule => {
+                            let segment = '';
+                            switch (rule.source) {
+                                case 'schoolYear': segment = examSettings.schoolYear.slice(-2); break;
+                                case 'term': segment = String(examSettings.term).padStart(2, '0'); break;
+                                case 'grade': segment = student.grade.padStart(2, '0'); break;
+                                case 'classroomNumber': segment = (student.classroomNumber.match(/\d+/) || ['0'])[0].padStart(rule.length, '0'); break;
+                                case 'seatNumber': segment = String(student.seatNumber).padStart(rule.length, '0'); break;
+                                case 'classSeat': segment = String(student.classSeat || '').padStart(rule.length, '0'); break;
+                                case 'class': 
+                                    const numericPart = student.class.replace(/\D/g, '');
+                                    segment = numericPart.slice(-2).padStart(rule.length, '0'); 
+                                    break;
+                                case 'schoolCode':
+                                case 'fixedString':
+                                    segment = rule.value || '';
+                                    break;
+                                default: segment = ''.padStart(rule.length, '0');
+                            }
+                            examNumber += segment.slice(0, rule.length);
+                        });
+                        return { ...student, examNumber };
+                    });
+                setArrangementResult(resultWithExamNumbers);
+                alert('考场编排完成！');
+            };
+
+            const studentGrades = Array.from(new Set(students.map(s => normalizeGrade(s.grade)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+            const studentClasses = Array.from(new Set(students.map(s => String(s.class || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+            const filteredStudents = students.filter(s => {
+                if (studentGradeFilter !== 'all' && normalizeGrade(s.grade) !== studentGradeFilter) return false;
+                if (studentClassFilter !== 'all' && String(s.class || '').trim() !== studentClassFilter) return false;
+                return true;
+            });
+            const toggleExam = (id) => setSelectedExamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+            const toggleClassroom = (id) => setSelectedClassroomIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+            const toggleStudent = (id) => setSelectedStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+            return (
+                <div>
+                    <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50 mb-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                            <div className="bg-white/80 border border-slate-200 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="font-semibold text-sm">选择考试场次</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setSelectedExamIds((examSessions || []).map(e => e.id))} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">全选</button>
+                                        <button onClick={() => setSelectedExamIds([])} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">清空</button>
+                                    </div>
+                                </div>
+                                <div className="max-h-36 overflow-auto space-y-1">
+                                    {(examSessions || []).map(exam => (
+                                        <label key={exam.id} className="flex items-center gap-2 text-sm">
+                                            <input type="checkbox" checked={selectedExamIds.includes(exam.id)} onChange={() => toggleExam(exam.id)} />
+                                            <span>{exam.subject} {String(exam.startTime || '').replace('T', ' ')}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white/80 border border-slate-200 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="font-semibold text-sm">选择考场</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setSelectedClassroomIds(classrooms.map(c => c.id))} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">全选</button>
+                                        <button onClick={() => setSelectedClassroomIds([])} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">清空</button>
+                                    </div>
+                                </div>
+                                <div className="max-h-36 overflow-auto space-y-1">
+                                    {classrooms.map(room => (
+                                        <label key={room.id} className="flex items-center gap-2 text-sm">
+                                            <input type="checkbox" checked={selectedClassroomIds.includes(room.id)} onChange={() => toggleClassroom(room.id)} />
+                                            <span>{room.number || room.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white/80 border border-slate-200 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="font-semibold text-sm">选择考生</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setSelectedStudentIds(filteredStudents.map(s => s.id))} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">全选筛选项</button>
+                                        <button onClick={() => setSelectedStudentIds([])} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">清空</button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 mb-2">
+                                    <select value={studentGradeFilter} onChange={(e) => setStudentGradeFilter(e.target.value)} className="p-1.5 border rounded text-sm">
+                                        <option value="all">全部年级</option>
+                                        {studentGrades.map(g => <option key={g} value={g}>{g}年级</option>)}
+                                    </select>
+                                    <select value={studentClassFilter} onChange={(e) => setStudentClassFilter(e.target.value)} className="p-1.5 border rounded text-sm">
+                                        <option value="all">全部班级</option>
+                                        {studentClasses.map(c => <option key={c} value={c}>{formatClassForOutput(c, classDisplaySetting)}</option>)}
+                                    </select>
+                                </div>
+                                <div className="max-h-28 overflow-auto space-y-1">
+                                    {filteredStudents.map(s => (
+                                        <label key={s.id} className="flex items-center gap-2 text-sm">
+                                            <input type="checkbox" checked={selectedStudentIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
+                                            <span>{s.name}（{formatClassForOutput(s.class, classDisplaySetting)}）</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white/90 backdrop-blur p-8 rounded-2xl shadow-xl border border-white/50 text-center">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold mb-3">第一步：选择要编排的年级</h3>
+                            <div className="mb-3">
+                                <label className="inline-flex items-center space-x-2 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={ignoreGradeMatching}
+                                        onChange={(e) => setIgnoreGradeMatching(e.target.checked)}
+                                        className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="text-gray-700 font-medium">忽略年级匹配（使用全部考场）</span>
+                                </label>
+                            </div>
+                            <div className="flex justify-center space-x-4 flex-wrap">
+                                {gradeStats.length > 0 ? gradeStats.map(({ grade, studentCount, classroomCount, canArrange }) => (
+                                    <label key={grade} className={`flex items-center space-x-2 m-2 ${canArrange ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+                                        <input 
+                                            type="checkbox" 
+                                            disabled={!canArrange}
+                                            checked={selectedGrades.includes(grade)} 
+                                            onChange={() => handleGradeSelection(grade)}
+                                            className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span>{grade}年级（考生{studentCount} / 考场{ignoreGradeMatching ? classrooms.length : classroomCount}）</span>
+                                    </label>
+                                )) : (
+                                    <span className="text-gray-500 italic">暂无年级数据，请先导入考生信息与考场信息。</span>
+                                )}
+                            </div>
+                        </div>
+                         <div className="mb-8">
+                            <h3 className="text-lg font-semibold mb-3">第二步：选择编排原则</h3>
+                            <div className="flex flex-col items-center space-y-4">
+                                <div className="flex justify-center space-x-6">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input 
+                                            type="radio"
+                                            name="principle"
+                                            value="random"
+                                            checked={arrangementPrinciple === 'random'}
+                                            onChange={(e) => setArrangementPrinciple(e.target.value)}
+                                            disabled={keepOriginalOrder}
+                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 ${keepOriginalOrder ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        />
+                                        <span>随机优先</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input 
+                                            type="radio"
+                                            name="principle"
+                                            value="avoid"
+                                            checked={arrangementPrinciple === 'avoid'}
+                                            onChange={(e) => setArrangementPrinciple(e.target.value)}
+                                            disabled={keepOriginalOrder}
+                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 ${keepOriginalOrder ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        />
+                                        <span>同班规避</span>
+                                    </label>
+                                </div>
+                                <label className={`flex items-center space-x-2 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200 transition-colors ${keepOriginalOrder ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-yellow-100'}`}>
+                                    <input 
+                                        type="checkbox"
+                                        checked={strictCategoryGrouping}
+                                        onChange={(e) => setStrictCategoryGrouping(e.target.checked)}
+                                        disabled={keepOriginalOrder}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
+                                    />
+                                    <span className="font-medium text-gray-700">启用分类严格编排模式</span>
+                                </label>
+                                {strictCategoryGrouping && (
+                                    <div className="flex space-x-4 bg-yellow-50/50 p-2 rounded-lg">
+                                        <label className={`flex items-center space-x-1 ${keepOriginalOrder ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                                            <input 
+                                                type="radio" 
+                                                name="fillMode"
+                                                value="independent"
+                                                checked={categoryFillMode === 'independent'}
+                                                onChange={(e) => setCategoryFillMode(e.target.value)}
+                                                disabled={keepOriginalOrder}
+                                                className="h-3 w-3 text-blue-600"
+                                            />
+                                            <span className="text-sm text-gray-600">独立考场 (分类结束留空)</span>
+                                        </label>
+                                        <label className={`flex items-center space-x-1 ${keepOriginalOrder ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                                            <input 
+                                                type="radio" 
+                                                name="fillMode"
+                                                value="continuous"
+                                                checked={categoryFillMode === 'continuous'}
+                                                onChange={(e) => setCategoryFillMode(e.target.value)}
+                                                disabled={keepOriginalOrder}
+                                                className="h-3 w-3 text-blue-600"
+                                            />
+                                            <span className="text-sm text-gray-600">紧凑填充 (分类接续不留空)</span>
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                            <button onClick={handleArrange} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 shadow-lg text-xl font-bold flex items-center justify-center">
+                                <icons.BookUser className="h-8 w-8 mr-4" />
+                                开始编排
+                            </button>
+                            <label className="flex items-center space-x-2 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={keepOriginalOrder}
+                                    onChange={(e) => setKeepOriginalOrder(e.target.checked)}
+                                    className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-700 font-medium">保持原序</span>
+                            </label>
+                        </div>
+                    </div>
+                    {arrangementResult.length > 0 && (
+                        <div className="mt-8 bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50">
+                            <h2 className="text-xl font-bold mb-4">编排结果预览</h2>
+                            <div className="overflow-x-auto h-96">
+                                <table className="min-w-full bg-white">
+                                    <thead className="bg-gray-100 sticky top-0">
+                                        <tr>
+                                            {['考号', '姓名', '原班级', '考场', '座位号'].map(h => 
+                                                <th key={h} className="text-left py-3 px-4 font-medium text-gray-600">{h}</th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {arrangementResult.map(s => (
+                                            <tr key={s.id} className="border-b hover:bg-gray-50">
+                                                <td className="py-3 px-4 font-mono">{s.examNumber}</td>
+                                                <td className="py-3 px-4">{s.name}</td>
+                                                <td className="py-3 px-4">{formatClassForOutput(s.class, classDisplaySetting)}</td>
+                                                <td className="py-3 px-4">{s.classroomName} ({s.classroomNumber})</td>
+                                                <td className="py-3 px-4">{s.seatNumber}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const PrintAndExport = ({ arrangementResult, examSettings, classrooms, classDisplaySetting, setClassDisplaySetting }) => {
+            const { jsPDF } = window.jspdf;
+            const [fontSize, setFontSize] = useState(18);
+            const [classroomRowPadding, setClassroomRowPadding] = useState(20);
+            const [classListRowPadding, setClassListRowPadding] = useState(4);
+            const [bureauRoomNoMode, setBureauRoomNoMode] = useState('default');
+            const [isExporting, setIsExporting] = useState(false);
+
+            // --- Helper: Generate PDF from HTML Strings using html2canvas ---
+            const generatePDF = async (pagesContent, fileName, orientation = 'p') => {
+                setIsExporting(true);
+                try {
+                    const doc = new jspdf.jsPDF(orientation, 'mm', 'a4');
+                    const pageWidth = doc.internal.pageSize.getWidth();
+                    const pageHeight = doc.internal.pageSize.getHeight();
+
+                    // Create a hidden container for rendering
+                    const container = document.createElement('div');
+                    container.style.position = 'fixed';
+                    container.style.top = '-10000px';
+                    container.style.left = '-10000px';
+                    container.style.zIndex = '-100';
+                    // Set width to match A4 width in pixels (approx 96 DPI or higher for quality)
+                    const a4WidthPx = orientation === 'p' ? 794 : 1123; 
+                    const a4HeightPx = orientation === 'p' ? 1123 : 794;
+                    const scaleFactor = 2; // High resolution
+                    
+                    container.style.width = `${a4WidthPx * scaleFactor}px`;
+                    container.style.minHeight = `${a4HeightPx * scaleFactor}px`; // Ensure container is at least full page height
+                    container.style.backgroundColor = '#fff';
+                    container.style.display = 'flex'; // Use flexbox for vertical centering
+                    container.style.flexDirection = 'column';
+                    container.style.justifyContent = 'flex-start'; // Align to top
+                    container.style.alignItems = 'center'; // Horizontal centering
+                    container.style.padding = '60px'; // Add padding to container itself as a safe margin
+                    container.style.paddingTop = '80px'; // Extra top padding
+                    
+                    document.body.appendChild(container);
+
+                    for (let i = 0; i < pagesContent.length; i++) {
+                        if (i > 0) doc.addPage();
+                        
+                        // Reset container content
+                        container.innerHTML = pagesContent[i];
+                        
+                        // Wait a bit for rendering (fonts, layout)
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                        const canvas = await html2canvas(container, {
+                            scale: 1, // We already scaled the container size
+                            useCORS: true,
+                            logging: false,
+                            windowWidth: a4WidthPx * scaleFactor,
+                            windowHeight: a4HeightPx * scaleFactor // Ensure we capture full height
+                        });
+
+                        const imgData = canvas.toDataURL('image/jpeg', 0.78);
+                        
+                        // Add image to PDF (fit to page)
+                        doc.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'MEDIUM');
+                    }
+                    
+                    document.body.removeChild(container);
+                    doc.save(`${fileName}.pdf`);
+                } catch (e) {
+                    console.error("PDF Export Error:", e);
+                    alert("PDF导出失败: " + e.message);
+                } finally {
+                    setIsExporting(false);
+                }
+            };
+
+            const exportToExcel = (data, fileName) => {
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+                XLSX.writeFile(wb, `${fileName}.xlsx`);
+            };
+
+            const exportClassInfo = (format) => {
+                const studentsByClass = arrangementResult.reduce((acc, s) => {
+                    acc[s.class] = acc[s.class] || [];
+                    acc[s.class].push(s);
+                    return acc;
+                }, {});
+
+                if(format === 'pdf') {
+                    const pages = [];
+                    Object.keys(studentsByClass).sort().forEach((className) => {
+                        const classStudents = studentsByClass[className].sort((a,b) => a.classSeat - b.classSeat);
+                        const title = `${examSettings.schoolYear}学年第${examSettings.term}学期 ${examSettings.examName} - 考场安排 (班级: ${formatClassForOutput(className, classDisplaySetting)})`;
+                        
+                        const scaledFontSize = fontSize * 2; 
+                        const scaledPadding = classListRowPadding * 2; // Scale padding
+
+                        let html = `
+                            <div style="width: 100%; padding: 40px; font-family: 'Noto Sans SC', sans-serif; color: #000; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+                                <h2 style="text-align: center; font-size: ${36 * (fontSize/14)}px; margin-bottom: 30px; font-weight: bold; color: #1e3a8a;">${title}</h2>
+                                <table style="width: 100%; border-collapse: collapse; font-size: ${scaledFontSize}px; border: 2px solid #1e3a8a;">
+                                    <thead>
+                                        <tr style="background-color: #1e3a8a; color: white;">
+                                            <th style="border: 1px solid #1e3a8a; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; font-weight: bold;">班内序号</th>
+                                            <th style="border: 1px solid #1e3a8a; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; font-weight: bold;">姓名</th>
+                                            <th style="border: 1px solid #1e3a8a; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; font-weight: bold;">考号</th>
+                                            <th style="border: 1px solid #1e3a8a; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; font-weight: bold;">班级</th>
+                                            <th style="border: 1px solid #1e3a8a; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; font-weight: bold;">考场</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${classStudents.map((s, index) => `
+                                            <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                                <td style="border: 1px solid #cbd5e1; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; height: ${scaledPadding * 4}px; color: #334155; line-height: 1.25; display: table-cell;">${s.classSeat}</td>
+                                                <td style="border: 1px solid #cbd5e1; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; height: ${scaledPadding * 4}px; color: #334155; line-height: 1.25; font-weight: 500; display: table-cell;">${s.name}</td>
+                                                <td style="border: 1px solid #cbd5e1; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; height: ${scaledPadding * 4}px; color: #334155; line-height: 1.25; display: table-cell;">${s.examNumber}</td>
+                                                <td style="border: 1px solid #cbd5e1; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; height: ${scaledPadding * 4}px; color: #334155; line-height: 1.25; display: table-cell;">${formatClassForOutput(s.class, classDisplaySetting)}</td>
+                                                <td style="border: 1px solid #cbd5e1; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; height: ${scaledPadding * 4}px; color: #334155; line-height: 1.25; display: table-cell;">${s.classroomName}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                        pages.push(html);
+                    });
+                    generatePDF(pages, `班级安排 - ${examSettings.examName}`, 'p');
+                } else {
+                    const allStudentsData = [];
+                    Object.keys(studentsByClass).sort().forEach(className => {
+                        const classStudents = studentsByClass[className].sort((a,b) => a.classSeat - b.classSeat);
+                        allStudentsData.push(...classStudents.map(s => ({
+                            '班级': formatClassForOutput(s.class, classDisplaySetting),
+                            '班内序号': s.classSeat,
+                            '姓名': s.name,
+                            '考号': s.examNumber,
+                            '考场': s.classroomName
+                        })));
+                    });
+                    exportToExcel(allStudentsData, `班级安排 - ${examSettings.examName}`);
+                }
+            };
+            
+            const exportClassroomLayout = (format) => {
+                const studentsByClassroom = arrangementResult.reduce((acc, s) => {
+                    acc[s.classroomNumber] = acc[s.classroomNumber] || [];
+                    acc[s.classroomNumber].push(s);
+                    return acc;
+                }, {});
+
+                if (format === 'pdf') {
+                    const pages = [];
+                    // Sort classroom numbers numerically (e.g. "第1考场", "第2考场", "第10考场")
+                    const sortedClassroomNumbers = Object.keys(studentsByClassroom).sort((a, b) => {
+                        const numA = parseInt(a.replace(/\D/g, '') || '0', 10);
+                        const numB = parseInt(b.replace(/\D/g, '') || '0', 10);
+                        if (numA !== numB) return numA - numB;
+                        return a.localeCompare(b);
+                    });
+
+                    sortedClassroomNumbers.forEach((classroomNumber) => {
+                        const classroomStudents = studentsByClassroom[classroomNumber];
+                        const classroomInfo = classrooms.find(c => c.number === classroomNumber);
+                        if (!classroomInfo) return;
+                        
+                        const title = `${examSettings.schoolYear}学年第${examSettings.term}学期 ${examSettings.examName} - ${classroomInfo.name} (${classroomNumber}) 位置编排`;
+                        const layout = classroomInfo.layoutDetail.split(',').map(Number);
+                        const maxRows = Math.max(...layout);
+                        
+                        // Prepare grid data for display
+                        let tableBody = [];
+                        for(let i=0; i<maxRows; i++){ tableBody.push(Array(layout.length).fill(null)); }
+                        
+                        let sIdx = 0;
+                        for(let col=0; col<layout.length; col++){
+                            for(let row=0; row<layout[col]; row++){
+                                if(sIdx < classroomStudents.length){
+                                    tableBody[row][col] = classroomStudents[sIdx];
+                                    sIdx++;
+                                } else {
+                                    tableBody[row][col] = { name: '空', examNumber: '', class: '' }; // Empty seat placeholder
+                                }
+                            }
+                        }
+
+                        const scaledFontSize = fontSize * 2; 
+                        const scaledPadding = classroomRowPadding * 2; // Scale padding
+
+                        let html = `
+                            <div style="width: 100%; padding: 40px; font-family: 'Noto Sans SC', sans-serif; color: #000; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;">
+                                <h2 style="text-align: center; font-size: ${36 * (fontSize/14)}px; margin-bottom: 20px; font-weight: bold; color: #1e3a8a;">${title}</h2>
+                                <div style="text-align: center; margin-bottom: 20px; font-weight: bold; border: 2px solid #1e3a8a; padding: 10px; width: 200px; font-size: ${scaledFontSize * 1.1}px; background-color: #eff6ff; color: #1e3a8a; border-radius: 4px;">讲 台</div>
+                                <table style="width: 100%; border-collapse: collapse; font-size: ${scaledFontSize}px; border: 2px solid #1e3a8a;">
+                                    <thead>
+                                        <tr>
+                                            ${layout.map((_, i) => `<th style="border: 1px solid #1e3a8a; padding: 10px; background-color: #1e3a8a; color: white; font-weight: bold; vertical-align: middle;">第 ${i+1} 列</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${tableBody.map((row, rIdx) => `
+                                            <tr>
+                                                ${row.map(cell => {
+                                                    if (cell === null) return '<td style="border: none;"></td>'; // No seat here
+                                                    const content = cell.name === '空' ? '<span style="color: #94a3b8;">空</span>' : `
+                                                        <div style="font-weight: bold; color: #1e293b; line-height: 1.2;">${cell.class ? formatClassForOutput(cell.class, classDisplaySetting) : ''} ${cell.name}</div>
+                                                        <div style="font-size: 0.85em; margin-top: 4px; color: #64748b;">${cell.examNumber}</div>
+                                                    `;
+                                                    return `<td style="border: 1px solid #cbd5e1; padding: ${scaledPadding}px; text-align: center; vertical-align: middle; background-color: #fff;">${content}</td>`;
+                                                }).join('')}
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                        pages.push(html);
+                    });
+                    generatePDF(pages, `考场座位表 - ${examSettings.examName}`, 'l'); // Landscape
+                } else {
+                    const wb = XLSX.utils.book_new();
+                    // Sort classroom numbers numerically for Excel as well
+                    const sortedClassroomNumbers = Object.keys(studentsByClassroom).sort((a, b) => {
+                        const numA = parseInt(a.replace(/\D/g, '') || '0', 10);
+                        const numB = parseInt(b.replace(/\D/g, '') || '0', 10);
+                        if (numA !== numB) return numA - numB;
+                        return a.localeCompare(b);
+                    });
+
+                    sortedClassroomNumbers.forEach(classroomNumber => {
+                        const classroomStudents = studentsByClassroom[classroomNumber];
+                        const classroomInfo = classrooms.find(c => c.number === classroomNumber);
+                        if (!classroomInfo) return;
+
+                        const layout = classroomInfo.layoutDetail.split(',').map(Number);
+                        const maxRows = Math.max(...layout);
+                        const sheetData = [];
+                        const header = layout.map((_, i) => `第 ${i+1} 列`);
+                        sheetData.push(header);
+
+                        let studentMap = {};
+                        classroomStudents.forEach(s => {
+                            studentMap[s.seatNumber] = `${formatClassForOutput(s.class, classDisplaySetting)} ${s.name} (${s.examNumber})`;
+                        });
+                        
+                        let seatCounter = 1;
+                        for(let r=0; r<maxRows; r++){
+                            const rowData = [];
+                            for(let c=0; c<layout.length; c++){
+                                if(r < layout[c]){
+                                    rowData.push(studentMap[seatCounter] || '');
+                                    seatCounter++;
+                                } else {
+                                    rowData.push('');
+                                }
+                            }
+                            sheetData.push(rowData);
+                        }
+                        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                        XLSX.utils.book_append_sheet(wb, ws, classroomInfo.name);
+                    });
+                    XLSX.writeFile(wb, `考场座位表 - ${examSettings.examName}.xlsx`);
+                }
+            };
+
+            const exportForBureau = () => {
+                const data = arrangementResult.map(s => ({ 
+                    '学籍号': s.studentId, 
+                    '考号': s.examNumber, 
+                    '姓名': s.name, 
+                    '班级': formatClassForOutput(s.class, classDisplaySetting), 
+                    '小语种': '', 
+                    '考场名称': s.classroomName,
+                    '考场号': bureauRoomNoMode === 'byClassroomName' ? `第${String(s.classroomName || '').replace(/\D/g, '') || s.classroomName}考场` : s.classroomNumber, 
+                    '座位号': s.seatNumber, 
+                    '不参与统计': '' 
+                }));
+                exportToExcel(data, `教育局统考输出 - ${examSettings.examName}`);
+            };
+            
+            const exportForInternal = () => {
+                const data = arrangementResult.map(s => ({ '学籍号': s.studentId, '姓名': s.name, '考号': s.examNumber, '班级': formatClassForOutput(s.class, classDisplaySetting), '分类': '', '小语种': '', '是否参与统计': '是' }));
+                exportToExcel(data, `校内考试输出 - ${examSettings.examName}`);
+            };
+
+            return (
+                <div>
+                    {/* Settings Panel */}
+                    <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50 mb-6">
+                        <h2 className="font-bold text-lg mb-4 flex items-center">
+                            <icons.Settings className="w-5 h-5 mr-2" />
+                            打印设置
+                        </h2>
+                        <div className="space-y-6">
+                             {/* Font Size Slider */}
+                            <div className="flex items-center space-x-4">
+                                <label className="font-medium text-gray-700 w-32">全局字号缩放:</label>
+                                <input 
+                                    type="range" 
+                                    min="8" 
+                                    max="24" 
+                                    value={fontSize} 
+                                    onChange={(e) => setFontSize(Number(e.target.value))}
+                                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <span className="text-gray-600 w-12">{fontSize}px</span>
+                            </div>
+
+                            {/* Classroom Row Height Slider */}
+                             <div className="flex items-center space-x-4">
+                                <label className="font-medium text-gray-700 w-32">考场座位间距:</label>
+                                <input 
+                                    type="range" 
+                                    min="5" 
+                                    max="30" 
+                                    value={classroomRowPadding} 
+                                    onChange={(e) => setClassroomRowPadding(Number(e.target.value))}
+                                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <span className="text-gray-600 w-12">{classroomRowPadding}px</span>
+                                <span className="text-sm text-gray-500">(调大此值以撑满考场页面)</span>
+                            </div>
+
+                            {/* Class List Row Height Slider */}
+                            <div className="flex items-center space-x-4">
+                                <label className="font-medium text-gray-700 w-32">班级名单间距:</label>
+                                <input 
+                                    type="range" 
+                                    min="2" 
+                                    max="20" 
+                                    value={classListRowPadding} 
+                                    onChange={(e) => setClassListRowPadding(Number(e.target.value))}
+                                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <span className="text-gray-600 w-12">{classListRowPadding}px</span>
+                                <span className="text-sm text-gray-500">(调小此值以容纳更多学生)</span>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+                                <label className="font-medium text-gray-700 w-32">班级显示方式:</label>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <select
+                                        value={classDisplaySetting?.mode || 'full'}
+                                        onChange={(e) => {
+                                            const nextMode = e.target.value;
+                                            setClassDisplaySetting(prev => ({
+                                                ...(prev || { mode: 'full', lastN: 2 }),
+                                                mode: nextMode,
+                                            }));
+                                        }}
+                                        className="p-2 border rounded-lg bg-white"
+                                    >
+                                        <option value="full">完整</option>
+                                        <option value="lastN">后N位（补零）</option>
+                                        <option value="inner">班号（括号/末位）</option>
+                                    </select>
+
+                                    {(classDisplaySetting?.mode || 'full') === 'lastN' && (
+                                        <div className="flex items-center space-x-2">
+                                            <span className="text-gray-600">N</span>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="6"
+                                                value={classDisplaySetting?.lastN ?? 2}
+                                                onChange={(e) => {
+                                                    const nextN = clampInt(e.target.value, 1, 6);
+                                                    setClassDisplaySetting(prev => ({
+                                                        ...(prev || { mode: 'lastN', lastN: 2 }),
+                                                        mode: 'lastN',
+                                                        lastN: nextN,
+                                                    }));
+                                                }}
+                                                className="w-24 p-2 border rounded-lg"
+                                            />
+                                            <span className="text-sm text-gray-500">示例：905 → 05，九（5）班 → 05</span>
+                                        </div>
+                                    )}
+
+                                    {(classDisplaySetting?.mode || 'full') === 'inner' && (
+                                        <span className="text-sm text-gray-500">示例：905 → 5，九（5）班 → 5</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50 hover:shadow-xl transition-shadow duration-300">
+                            <h2 className="font-bold text-lg mb-3">班级信息输出</h2>
+                            <div className="flex space-x-2 mt-4">
+                                <button onClick={() => exportClassInfo('pdf')} disabled={isExporting} className={`flex-1 text-white px-4 py-2 rounded-lg flex items-center justify-center transition-all ${isExporting ? 'bg-gray-400' : 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg'}`}>
+                                    <icons.Download className="h-4 w-4 mr-2" />
+                                    {isExporting ? '生成中...' : '导出 PDF'}
+                                </button>
+                                <button onClick={() => exportClassInfo('excel')} className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center justify-center">
+                                    <icons.Download className="h-4 w-4 mr-2" />
+                                    导出 Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50 hover:shadow-xl transition-shadow duration-300">
+                            <h2 className="font-bold text-lg mb-3">考场编排输出</h2>
+                            <div className="flex space-x-2 mt-4">
+                                <button onClick={() => exportClassroomLayout('pdf')} disabled={isExporting} className={`flex-1 text-white px-4 py-2 rounded-lg flex items-center justify-center transition-all ${isExporting ? 'bg-gray-400' : 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg'}`}>
+                                    <icons.Download className="h-4 w-4 mr-2" />
+                                    {isExporting ? '生成中...' : '导出 PDF'}
+                                </button>
+                                <button onClick={() => exportClassroomLayout('excel')} className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center justify-center">
+                                    <icons.Download className="h-4 w-4 mr-2" />
+                                    导出 Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50 hover:shadow-xl transition-shadow duration-300">
+                            <h2 className="font-bold text-lg mb-3">校内考试输出 (Excel)</h2>
+                            <button onClick={exportForInternal} className="bg-gradient-to-r from-orange-400 to-amber-500 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all w-full flex items-center justify-center">
+                                <icons.Download className="h-4 w-4 mr-2" />
+                                生成校内统计表
+                            </button>
+                        </div>
+                        <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border border-white/50 hover:shadow-xl transition-shadow duration-300">
+                            <h2 className="font-bold text-lg mb-3">教育局统考输出 (Excel)</h2>
+                            <div className="mb-3">
+                                <label className="text-sm text-gray-700 font-medium mr-2">考场号模式</label>
+                                <select value={bureauRoomNoMode} onChange={(e) => setBureauRoomNoMode(e.target.value)} className="w-full p-2 border rounded-lg mt-1">
+                                    <option value="default">默认模式（沿用系统考场号）</option>
+                                    <option value="byClassroomName">按考场名称输出（第+考场名称+考场）</option>
+                                </select>
+                            </div>
+                            <button onClick={exportForBureau} className="bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all w-full flex items-center justify-center">
+                                <icons.Download className="h-4 w-4 mr-2" />
+                                生成教育局上报表
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
