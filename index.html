@@ -3273,6 +3273,30 @@
                     acc[s.classroomNumber].push(s);
                     return acc;
                 }, {});
+                const normalizeRoomKey = (value) => String(value ?? '').trim();
+                const getClassroomInfo = (classroomNumber, classroomStudents) => {
+                    const targetNumber = normalizeRoomKey(classroomNumber);
+                    const targetName = normalizeRoomKey(classroomStudents?.[0]?.classroomName);
+                    return classrooms.find(c => {
+                        const numberMatched = normalizeRoomKey(c.number) === targetNumber;
+                        const nameMatched = targetName && normalizeRoomKey(c.name) === targetName;
+                        return numberMatched || nameMatched;
+                    }) || null;
+                };
+                const buildFallbackLayout = (seatCount) => {
+                    const count = Math.max(1, Number(seatCount) || 1);
+                    const columns = Math.max(1, Math.min(8, Math.ceil(Math.sqrt(count))));
+                    const rows = Math.ceil(count / columns);
+                    return Array(columns).fill(rows);
+                };
+                const parseLayout = (layoutDetail, seatCount) => {
+                    const parsed = String(layoutDetail || '')
+                        .split(',')
+                        .map(n => Number(n))
+                        .filter(n => Number.isFinite(n) && n > 0);
+                    if (parsed.length > 0) return parsed;
+                    return buildFallbackLayout(seatCount);
+                };
 
                 if (format === 'pdf') {
                     const pages = [];
@@ -3286,11 +3310,12 @@
 
                     sortedClassroomNumbers.forEach((classroomNumber) => {
                         const classroomStudents = studentsByClassroom[classroomNumber];
-                        const classroomInfo = classrooms.find(c => c.number === classroomNumber);
-                        if (!classroomInfo) return;
+                        const classroomInfo = getClassroomInfo(classroomNumber, classroomStudents);
+                        const roomName = classroomInfo?.name || classroomStudents?.[0]?.classroomName || `考场${classroomNumber}`;
+                        const roomNumber = normalizeRoomKey(classroomInfo?.number || classroomNumber);
                         
-                        const title = `${examSettings.schoolYear}学年第${examSettings.term}学期 ${examSettings.examName} - ${classroomInfo.name} (${classroomNumber}) 位置编排`;
-                        const layout = classroomInfo.layoutDetail.split(',').map(Number);
+                        const title = `${examSettings.schoolYear}学年第${examSettings.term}学期 ${examSettings.examName} - ${roomName} (${roomNumber}) 位置编排`;
+                        const layout = parseLayout(classroomInfo?.layoutDetail, classroomStudents.length);
                         const maxRows = Math.max(...layout);
                         
                         // Prepare grid data for display
@@ -3354,10 +3379,11 @@
 
                     sortedClassroomNumbers.forEach(classroomNumber => {
                         const classroomStudents = studentsByClassroom[classroomNumber];
-                        const classroomInfo = classrooms.find(c => c.number === classroomNumber);
-                        if (!classroomInfo) return;
+                        const classroomInfo = getClassroomInfo(classroomNumber, classroomStudents);
+                        const roomName = classroomInfo?.name || classroomStudents?.[0]?.classroomName || `考场${classroomNumber}`;
+                        const roomNumber = normalizeRoomKey(classroomInfo?.number || classroomNumber);
 
-                        const layout = classroomInfo.layoutDetail.split(',').map(Number);
+                        const layout = parseLayout(classroomInfo?.layoutDetail, classroomStudents.length);
                         const maxRows = Math.max(...layout);
                         const sheetData = [];
                         const header = layout.map((_, i) => `第 ${i+1} 列`);
@@ -3382,13 +3408,19 @@
                             sheetData.push(rowData);
                         }
                         const ws = XLSX.utils.aoa_to_sheet(sheetData);
-                        XLSX.utils.book_append_sheet(wb, ws, classroomInfo.name);
+                        XLSX.utils.book_append_sheet(wb, ws, String(roomName).slice(0, 31) || `考场${roomNumber}`);
                     });
                     XLSX.writeFile(wb, `考场座位表 - ${examSettings.examName}.xlsx`);
                 }
             };
 
             const exportForBureau = () => {
+                const getBureauRoomNoByName = (roomName, fallback) => {
+                    const raw = String(roomName || '').trim();
+                    if (!raw) return fallback;
+                    if (/^第.*考场$/.test(raw)) return raw;
+                    return `第${raw}考场`;
+                };
                 const data = arrangementResult.map(s => ({ 
                     '学籍号': s.studentId, 
                     '考号': s.examNumber, 
@@ -3396,7 +3428,9 @@
                     '班级': formatClassForOutput(s.class, classDisplaySetting), 
                     '小语种': '', 
                     '考场名称': s.classroomName,
-                    '考场号': bureauRoomNoMode === 'byClassroomName' ? `第${String(s.classroomName || '').replace(/\D/g, '') || s.classroomName}考场` : s.classroomNumber, 
+                    '考场号': bureauRoomNoMode === 'byClassroomName'
+                        ? getBureauRoomNoByName(s.classroomName, s.classroomNumber)
+                        : s.classroomNumber, 
                     '座位号': s.seatNumber, 
                     '不参与统计': '' 
                 }));
